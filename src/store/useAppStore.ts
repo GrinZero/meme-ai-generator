@@ -8,6 +8,7 @@ import type { APIConfig, APIStyle } from '../types/api';
 import type { UploadedImage, ExtractedEmoji, ImageType } from '../types/image';
 import { STORAGE_KEY } from '../types/store';
 import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from '../services/imageValidation';
+import { fetchModels, getDefaultModels, type ModelInfo } from '../services/modelListService';
 
 // 生成唯一 ID
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -28,6 +29,15 @@ interface AppState {
   // Language Preference
   languagePreference: string;
   setLanguagePreference: (pref: string) => void;
+  
+  // Model List (Requirements: 1.1, 1.2, 1.3, 1.4)
+  availableModels: ModelInfo[];
+  isLoadingModels: boolean;
+  modelListError: string | null;
+  setAvailableModels: (models: ModelInfo[]) => void;
+  setIsLoadingModels: (loading: boolean) => void;
+  setModelListError: (error: string | null) => void;
+  fetchModelList: () => Promise<void>;
   
   // Images
   materialImages: UploadedImage[];
@@ -63,7 +73,7 @@ type PersistedFields = Pick<AppState, 'apiConfig' | 'languagePreference'>;
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // API Config
       apiConfig: defaultAPIConfig,
       setAPIConfig: (config) =>
@@ -74,6 +84,56 @@ export const useAppStore = create<AppState>()(
       // Language Preference
       languagePreference: '',
       setLanguagePreference: (pref) => set({ languagePreference: pref }),
+
+      // Model List (Requirements: 1.1, 1.2, 1.3, 1.4)
+      availableModels: [],
+      isLoadingModels: false,
+      modelListError: null,
+      setAvailableModels: (models) => set({ availableModels: models }),
+      setIsLoadingModels: (loading) => set({ isLoadingModels: loading }),
+      setModelListError: (error) => set({ modelListError: error }),
+      fetchModelList: async () => {
+        const { apiConfig } = get();
+        
+        // If no API Key, use default models (Requirement 4.5)
+        if (!apiConfig.apiKey) {
+          set({ 
+            availableModels: getDefaultModels(apiConfig.style),
+            modelListError: null,
+            isLoadingModels: false,
+          });
+          return;
+        }
+
+        // Set loading state (Requirement 1.2)
+        set({ isLoadingModels: true, modelListError: null });
+
+        try {
+          const result = await fetchModels(apiConfig);
+          
+          if (result.success && result.models) {
+            // Success: update available models (Requirement 1.3)
+            set({ 
+              availableModels: result.models,
+              modelListError: null,
+            });
+          } else {
+            // Failure: fall back to default models (Requirement 1.4)
+            set({ 
+              availableModels: getDefaultModels(apiConfig.style),
+              modelListError: result.error || '获取模型列表失败',
+            });
+          }
+        } catch {
+          // Error: fall back to default models (Requirement 1.4)
+          set({ 
+            availableModels: getDefaultModels(apiConfig.style),
+            modelListError: '获取模型列表失败',
+          });
+        } finally {
+          set({ isLoadingModels: false });
+        }
+      },
 
       // Images
       materialImages: [],
@@ -134,7 +194,7 @@ export const useAppStore = create<AppState>()(
       generatedImage: null,
       extractedEmojis: [],
       setIsGenerating: (isGenerating) => set({ isGenerating }),
-      setGeneratedImage: (image) => set({ generatedImage: image }),
+      setGeneratedImage: (image) => set({ generatedImage: image, extractedEmojis: [], selectedEmojiId: null }),
       setExtractedEmojis: (emojis) => set({ extractedEmojis: emojis }),
 
       // Editor

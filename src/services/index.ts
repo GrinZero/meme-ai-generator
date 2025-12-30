@@ -107,3 +107,21 @@ export {
   createZipBlob,
   getZipFileList,
 } from './downloadService';
+
+export {
+  fetchModels,
+  clearCache,
+  getDefaultModels,
+  buildGeminiModelsUrl,
+  buildOpenAIModelsUrl,
+  filterGeminiModels,
+  transformOpenAIModels,
+  generateCacheKey,
+  DEFAULT_GEMINI_MODELS,
+  DEFAULT_OPENAI_MODELS,
+} from './modelListService';
+
+export type {
+  ModelInfo,
+  FetchModelsResult,
+} from './modelListService';

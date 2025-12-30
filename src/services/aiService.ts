@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * AI Service - AI API 适配器
  * 
@@ -7,6 +8,7 @@
  */
 
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import OpenAI from 'openai';
 import type { APIConfig } from '../types/api';
 import type { UploadedImage } from '../types/image';
 
@@ -128,10 +130,12 @@ export async function generateWithGemini(
     const genAI = new GoogleGenerativeAI(config.apiKey);
     
     // 获取模型，使用配置的模型或默认模型
+    // 如果配置了自定义 baseUrl，需要通过 requestOptions 传递
     const modelName = config.model || 'gemini-2.0-flash-exp';
+    const requestOptions = config.baseUrl ? { baseUrl: config.baseUrl } : undefined;
     const model: GenerativeModel = genAI.getGenerativeModel({ 
       model: modelName,
-    });
+    }, requestOptions);
 
     // 准备图片数据
     const imageParts = await Promise.all(
@@ -211,10 +215,34 @@ export async function generateWithGemini(
 
 
 /**
- * OpenAI 风格 API 适配器
- * 使用 fetch 发送请求，支持自定义 base URL
+ * 从 URL 获取图片 Blob
  */
-export async function generateWithOpenAI(
+async function fetchImageFromUrl(url: string): Promise<Blob> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new AIError('NETWORK_ERROR', '无法获取生成的图片');
+  }
+  return response.blob();
+}
+
+/**
+ * 将图片文件转换为 data URL
+ */
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * OpenAI Images API 适配器
+ * 使用 client.images.generate (适用于 DALL-E 3、豆包等专用图片生成模型)
+ * 支持通过 extra_body.image 传递多张参考图片
+ */
+export async function generateWithOpenAIImages(
   config: APIConfig,
   prompt: string,
   images: UploadedImage[]
@@ -222,12 +250,130 @@ export async function generateWithOpenAI(
   currentAbortController = new AbortController();
   
   try {
-    // 构建 base URL
-    const baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-    const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl || 'https://api.openai.com/v1',
+      dangerouslyAllowBrowser: true,
+    });
+
+    // 检查是否已取消
+    if (currentAbortController?.signal.aborted) {
+      throw new AIError('CANCELLED', '生成已取消');
+    }
+
+    const model = config.model || 'dall-e-3';
     
+    // 准备图片 data URL 列表（用于 extra_body）
+    const imageDataUrls = await Promise.all(
+      images.map(img => fileToDataUrl(img.file))
+    );
+
+    // 构建请求参数
+    const requestParams: OpenAI.Images.ImageGenerateParams = {
+      model: model,
+      prompt: prompt,
+      n: 1,
+      size: '2k' as any,
+      response_format: 'b64_json',
+    };
+
+    // 如果有参考图片，通过 extra_body 传递
+    const requestOptions: { signal: AbortSignal; body?: Record<string, unknown> } = {
+      signal: currentAbortController.signal,
+    };
+    
+    if (imageDataUrls.length > 0) {
+      // 使用 extra_body 传递图片（兼容豆包等 API）
+      (requestParams as any).image = imageDataUrls
+    }
+
+    // 发送请求
+    const response = await client.images.generate(requestParams, requestOptions);
+
+    // 检查是否已取消
+    if (currentAbortController?.signal.aborted) {
+      throw new AIError('CANCELLED', '生成已取消');
+    }
+
+    const data = response.data;
+    if (!data || data.length === 0) {
+      throw new AIError('INVALID_RESPONSE', 'AI 未返回图片');
+    }
+
+    const imageData = data[0];
+    
+    // 优先使用 b64_json
+    if (imageData.b64_json) {
+      const blob = base64ToBlob(imageData.b64_json, 'image/png');
+      return { success: true, imageBlob: blob };
+    }
+    
+    // 如果返回的是 URL，则获取图片
+    if (imageData.url) {
+      const blob = await fetchImageFromUrl(imageData.url);
+      return { success: true, imageBlob: blob };
+    }
+
+    throw new AIError('INVALID_RESPONSE', 'AI 未返回有效的图片数据');
+    
+  } catch (error) {
+    if (error instanceof AIError) {
+      return { success: false, error: getErrorMessage(error.type) };
+    }
+    
+    // 处理 AbortError
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: getErrorMessage('CANCELLED') };
+    }
+    
+    // 处理 OpenAI SDK 错误
+    const apiError = error as { status?: number; message?: string };
+    if (typeof apiError.status === 'number') {
+      if (apiError.status === 401) {
+        return { success: false, error: getErrorMessage('INVALID_API_KEY') };
+      }
+      if (apiError.status === 429) {
+        return { success: false, error: getErrorMessage('RATE_LIMIT') };
+      }
+      return { success: false, error: apiError.message || getErrorMessage('UNKNOWN') };
+    }
+    
+    // 处理其他错误
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    if (errorMessage.includes('network') || errorMessage.includes('Failed to fetch')) {
+      return { success: false, error: getErrorMessage('NETWORK_ERROR') };
+    }
+    if (errorMessage.includes('timeout')) {
+      return { success: false, error: getErrorMessage('TIMEOUT') };
+    }
+    
+    return { success: false, error: getErrorMessage('UNKNOWN') };
+  } finally {
+    currentAbortController = null;
+  }
+}
+
+/**
+ * OpenAI Chat Completions API 适配器
+ * 使用 chat.completions (适用于 GPT-4o 等支持图片生成的聊天模型)
+ */
+export async function generateWithOpenAIChat(
+  config: APIConfig,
+  prompt: string,
+  images: UploadedImage[]
+): Promise<GenerationResult> {
+  currentAbortController = new AbortController();
+  
+  try {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl || 'https://api.openai.com/v1',
+      dangerouslyAllowBrowser: true,
+    });
+
     // 准备图片内容
-    const imageContents = await Promise.all(
+    const imageContents: OpenAI.Chat.ChatCompletionContentPartImage[] = await Promise.all(
       images.map(async (img) => ({
         type: 'image_url' as const,
         image_url: {
@@ -237,7 +383,7 @@ export async function generateWithOpenAI(
     );
 
     // 构建消息内容
-    const content = [
+    const content: OpenAI.Chat.ChatCompletionContentPart[] = [
       { type: 'text' as const, text: prompt },
       ...imageContents,
     ];
@@ -248,22 +394,15 @@ export async function generateWithOpenAI(
     }
 
     // 发送请求
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model || 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content,
-          },
-        ],
-        max_tokens: 4096,
-      }),
+    const response = await client.chat.completions.create({
+      model: config.model || 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content,
+        },
+      ],
+    }, {
       signal: currentAbortController.signal,
     });
 
@@ -272,23 +411,8 @@ export async function generateWithOpenAI(
       throw new AIError('CANCELLED', '生成已取消');
     }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || response.statusText;
-      
-      if (response.status === 401) {
-        throw new AIError('INVALID_API_KEY', errorMessage);
-      }
-      if (response.status === 429) {
-        throw new AIError('RATE_LIMIT', errorMessage);
-      }
-      throw new AIError('UNKNOWN', errorMessage);
-    }
-
-    const data = await response.json();
-    
     // 检查响应格式
-    const choices = data.choices;
+    const choices = response.choices;
     if (!choices || choices.length === 0) {
       throw new AIError('INVALID_RESPONSE', 'AI 返回了无效的响应');
     }
@@ -301,6 +425,28 @@ export async function generateWithOpenAI(
     // OpenAI 的图片生成通常返回 URL 或 base64
     // 对于 chat completions，我们需要检查是否有图片数据
     const content_response = message.content;
+    
+    // 首先检查 message.images 数组（Gemini 等模型的返回格式）
+    const responseImages = (message as { images?: Array<{ image_url?: { url?: string } }> }).images;
+    if (responseImages && responseImages.length > 0) {
+      const imageUrl = responseImages[0]?.image_url?.url;
+      if (imageUrl) {
+        // 处理 data URL 格式
+        const base64Match = imageUrl.match(/^data:image\/[^;]+;base64,(.+)$/);
+        if (base64Match) {
+          const blob = base64ToBlob(base64Match[1]);
+          return { success: true, imageBlob: blob };
+        }
+        // 处理普通 URL（需要 fetch）
+        try {
+          const imageResponse = await fetch(imageUrl);
+          const blob = await imageResponse.blob();
+          return { success: true, imageBlob: blob };
+        } catch {
+          throw new AIError('INVALID_RESPONSE', '无法获取生成的图片');
+        }
+      }
+    }
     
     // 如果是字符串，可能包含 base64 图片数据
     if (typeof content_response === 'string') {
@@ -315,27 +461,6 @@ export async function generateWithOpenAI(
       throw new AIError('INVALID_RESPONSE', 'AI 未返回图片，请使用支持图片生成的模型');
     }
 
-    // 如果是数组，查找图片内容
-    if (Array.isArray(content_response)) {
-      for (const item of content_response) {
-        if (item.type === 'image_url' && item.image_url?.url) {
-          const url = item.image_url.url;
-          if (url.startsWith('data:')) {
-            const base64Match = url.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
-            if (base64Match) {
-              const blob = base64ToBlob(base64Match[1]);
-              return { success: true, imageBlob: blob };
-            }
-          } else {
-            // 如果是 URL，需要下载图片
-            const imageResponse = await fetch(url);
-            const blob = await imageResponse.blob();
-            return { success: true, imageBlob: blob };
-          }
-        }
-      }
-    }
-
     throw new AIError('INVALID_RESPONSE', 'AI 未返回图片');
     
   } catch (error) {
@@ -348,15 +473,21 @@ export async function generateWithOpenAI(
       return { success: false, error: getErrorMessage('CANCELLED') };
     }
     
+    // 处理 OpenAI SDK 错误 (duck typing for better compatibility)
+    const apiError = error as { status?: number; message?: string };
+    if (typeof apiError.status === 'number') {
+      if (apiError.status === 401) {
+        return { success: false, error: getErrorMessage('INVALID_API_KEY') };
+      }
+      if (apiError.status === 429) {
+        return { success: false, error: getErrorMessage('RATE_LIMIT') };
+      }
+      return { success: false, error: apiError.message || getErrorMessage('UNKNOWN') };
+    }
+    
     // 处理其他错误
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    if (errorMessage.includes('API key') || errorMessage.includes('Unauthorized')) {
-      return { success: false, error: getErrorMessage('INVALID_API_KEY') };
-    }
-    if (errorMessage.includes('quota') || errorMessage.includes('rate')) {
-      return { success: false, error: getErrorMessage('RATE_LIMIT') };
-    }
     if (errorMessage.includes('network') || errorMessage.includes('Failed to fetch')) {
       return { success: false, error: getErrorMessage('NETWORK_ERROR') };
     }
@@ -367,6 +498,25 @@ export async function generateWithOpenAI(
     return { success: false, error: getErrorMessage('UNKNOWN') };
   } finally {
     currentAbortController = null;
+  }
+}
+
+/**
+ * OpenAI 风格 API 适配器
+ * 根据配置的 generationMode 选择使用 chat 或 images API
+ */
+export async function generateWithOpenAI(
+  config: APIConfig,
+  prompt: string,
+  images: UploadedImage[]
+): Promise<GenerationResult> {
+  // 根据配置选择生成模式
+  const mode = config.openaiGenerationMode || 'chat';
+  
+  if (mode === 'images') {
+    return generateWithOpenAIImages(config, prompt, images);
+  } else {
+    return generateWithOpenAIChat(config, prompt, images);
   }
 }
 

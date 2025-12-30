@@ -293,14 +293,108 @@ export function extractBoundingBoxes(
 }
 
 /**
+ * 计算两个边界框之间的最小距离
+ */
+export function boundingBoxDistance(a: BoundingBox, b: BoundingBox): number {
+  // 计算水平和垂直方向的间隙
+  const horizontalGap = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.width, b.x + b.width));
+  const verticalGap = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.height, b.y + b.height));
+  
+  // 如果有重叠，距离为 0
+  if (horizontalGap === 0 && verticalGap === 0) return 0;
+  
+  return Math.sqrt(horizontalGap * horizontalGap + verticalGap * verticalGap);
+}
+
+/**
+ * 合并两个边界框
+ */
+export function mergeBoundingBoxes(a: BoundingBox, b: BoundingBox): BoundingBox {
+  const minX = Math.min(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxX = Math.max(a.x + a.width, b.x + b.width);
+  const maxY = Math.max(a.y + a.height, b.y + b.height);
+  
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+/**
+ * 合并距离较近的边界框（处理文字游离问题）
+ * 使用 Union-Find 算法进行聚类
+ */
+export function mergeNearbyBoundingBoxes(
+  boxes: BoundingBox[],
+  mergeDistance: number
+): BoundingBox[] {
+  if (boxes.length <= 1) return boxes;
+  
+  // Union-Find 数据结构
+  const parent: number[] = boxes.map((_, i) => i);
+  
+  function find(x: number): number {
+    if (parent[x] !== x) {
+      parent[x] = find(parent[x]);
+    }
+    return parent[x];
+  }
+  
+  function union(x: number, y: number): void {
+    const px = find(x);
+    const py = find(y);
+    if (px !== py) {
+      parent[px] = py;
+    }
+  }
+  
+  // 检查所有边界框对，合并距离较近的
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (boundingBoxDistance(boxes[i], boxes[j]) <= mergeDistance) {
+        union(i, j);
+      }
+    }
+  }
+  
+  // 按组合并边界框
+  const groups: Map<number, BoundingBox[]> = new Map();
+  for (let i = 0; i < boxes.length; i++) {
+    const root = find(i);
+    if (!groups.has(root)) {
+      groups.set(root, []);
+    }
+    groups.get(root)!.push(boxes[i]);
+  }
+  
+  // 合并每组的边界框
+  const mergedBoxes: BoundingBox[] = [];
+  for (const group of groups.values()) {
+    let merged = group[0];
+    for (let i = 1; i < group.length; i++) {
+      merged = mergeBoundingBoxes(merged, group[i]);
+    }
+    mergedBoxes.push(merged);
+  }
+  
+  return mergedBoxes;
+}
+
+/**
  * 检测图片中的表情区域
- * 完整流程：背景检测 -> 二值化 -> 连通区域标记 -> 边界框提取
+ * 完整流程：背景检测 -> 二值化 -> 连通区域标记 -> 边界框提取 -> 合并邻近区域
  */
 export function detectEmojis(
   imageData: ImageData,
-  config: Partial<RegionDetectionConfig> = {}
+  config: Partial<RegionDetectionConfig & { mergeDistance?: number }> = {}
 ): BoundingBox[] {
   const { tolerance = DEFAULT_TOLERANCE } = config;
+  // 默认合并距离为图片较短边的 5%，处理文字游离问题
+  const defaultMergeDistance = Math.min(imageData.width, imageData.height) * 0.05;
+  const { mergeDistance = defaultMergeDistance } = config;
   
   // 1. 检测背景色
   const backgroundColor = detectBackgroundColor(imageData, { tolerance });
@@ -312,9 +406,152 @@ export function detectEmojis(
   const { labels, regionCount } = labelConnectedRegions(mask);
   
   // 4. 提取边界框
-  return extractBoundingBoxes(labels, regionCount, config);
+  const boxes = extractBoundingBoxes(labels, regionCount, config);
+  
+  // 5. 合并邻近区域（处理文字游离）
+  const mergedBoxes = mergeNearbyBoundingBoxes(boxes, mergeDistance);
+  
+  // 重新排序
+  mergedBoxes.sort((a, b) => {
+    const rowDiff = Math.floor(a.y / 50) - Math.floor(b.y / 50);
+    if (rowDiff !== 0) return rowDiff;
+    return a.x - b.x;
+  });
+  
+  return mergedBoxes;
 }
 
+
+/**
+ * 网格切割配置
+ */
+export interface GridSplitConfig {
+  /** 行数 */
+  rows: number;
+  /** 列数 */
+  cols: number;
+  /** 是否自动检测网格（基于间隙检测） */
+  autoDetect?: boolean;
+}
+
+/**
+ * 按网格均分切割图片
+ * 适用于规整排列的表情包图片
+ */
+export function splitByGrid(
+  imageData: ImageData,
+  config: GridSplitConfig
+): BoundingBox[] {
+  const { rows, cols } = config;
+  const { width, height } = imageData;
+  
+  const cellWidth = Math.floor(width / cols);
+  const cellHeight = Math.floor(height / rows);
+  
+  const boxes: BoundingBox[] = [];
+  
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      boxes.push({
+        x: col * cellWidth,
+        y: row * cellHeight,
+        width: cellWidth,
+        height: cellHeight,
+      });
+    }
+  }
+  
+  return boxes;
+}
+
+/**
+ * 检测图片中的网格线（基于行/列像素相似度）
+ * 返回推测的行数和列数
+ */
+export function detectGrid(
+  imageData: ImageData,
+  config: { tolerance?: number; minCells?: number; maxCells?: number } = {}
+): { rows: number; cols: number } | null {
+  const { tolerance = 30, minCells = 2, maxCells = 6 } = config;
+  const { width, height } = imageData;
+  
+  // 检测背景色
+  const backgroundColor = detectBackgroundColor(imageData, { tolerance });
+  
+  // 计算每行的背景色像素比例
+  function getRowBackgroundRatio(y: number): number {
+    let bgCount = 0;
+    for (let x = 0; x < width; x++) {
+      const color = getPixelColor(imageData, x, y);
+      if (colorsAreSimilar(color, backgroundColor, tolerance)) {
+        bgCount++;
+      }
+    }
+    return bgCount / width;
+  }
+  
+  // 计算每列的背景色像素比例
+  function getColBackgroundRatio(x: number): number {
+    let bgCount = 0;
+    for (let y = 0; y < height; y++) {
+      const color = getPixelColor(imageData, x, y);
+      if (colorsAreSimilar(color, backgroundColor, tolerance)) {
+        bgCount++;
+      }
+    }
+    return bgCount / height;
+  }
+  
+  // 找到背景比例高的行（可能是分隔线）
+  const rowRatios: number[] = [];
+  for (let y = 0; y < height; y++) {
+    rowRatios.push(getRowBackgroundRatio(y));
+  }
+  
+  const colRatios: number[] = [];
+  for (let x = 0; x < width; x++) {
+    colRatios.push(getColBackgroundRatio(x));
+  }
+  
+  // 找分隔区域（连续的高背景比例区域）
+  function findSeparators(ratios: number[], threshold: number = 0.9): number[] {
+    const separators: number[] = [];
+    let inSeparator = false;
+    let separatorStart = 0;
+    
+    for (let i = 0; i < ratios.length; i++) {
+      if (ratios[i] >= threshold) {
+        if (!inSeparator) {
+          inSeparator = true;
+          separatorStart = i;
+        }
+      } else {
+        if (inSeparator) {
+          // 记录分隔区域的中点
+          separators.push(Math.floor((separatorStart + i) / 2));
+          inSeparator = false;
+        }
+      }
+    }
+    
+    return separators;
+  }
+  
+  // 尝试不同的阈值找到合理的分隔
+  for (const threshold of [0.95, 0.9, 0.85, 0.8]) {
+    const rowSeparators = findSeparators(rowRatios, threshold);
+    const colSeparators = findSeparators(colRatios, threshold);
+    
+    const rows = rowSeparators.length + 1;
+    const cols = colSeparators.length + 1;
+    
+    if (rows >= minCells && rows <= maxCells && cols >= minCells && cols <= maxCells) {
+      return { rows, cols };
+    }
+  }
+  
+  return null;
+}
 
 /**
  * 从 HTMLImageElement 获取 ImageData
@@ -362,7 +599,12 @@ export function cropImage(
   const cropWidth = Math.min(imageData.width - cropX, width + padding * 2);
   const cropHeight = Math.min(imageData.height - cropY, height + padding * 2);
   
-  const croppedData = new Uint8ClampedArray(cropWidth * cropHeight * 4);
+  // 使用 canvas 创建真正的 ImageData 实例
+  const canvas = document.createElement('canvas');
+  canvas.width = cropWidth;
+  canvas.height = cropHeight;
+  const ctx = canvas.getContext('2d')!;
+  const croppedImageData = ctx.createImageData(cropWidth, cropHeight);
   
   for (let cy = 0; cy < cropHeight; cy++) {
     for (let cx = 0; cx < cropWidth; cx++) {
@@ -371,19 +613,14 @@ export function cropImage(
       const srcIndex = (srcY * imageData.width + srcX) * 4;
       const dstIndex = (cy * cropWidth + cx) * 4;
       
-      croppedData[dstIndex] = imageData.data[srcIndex];
-      croppedData[dstIndex + 1] = imageData.data[srcIndex + 1];
-      croppedData[dstIndex + 2] = imageData.data[srcIndex + 2];
-      croppedData[dstIndex + 3] = imageData.data[srcIndex + 3];
+      croppedImageData.data[dstIndex] = imageData.data[srcIndex];
+      croppedImageData.data[dstIndex + 1] = imageData.data[srcIndex + 1];
+      croppedImageData.data[dstIndex + 2] = imageData.data[srcIndex + 2];
+      croppedImageData.data[dstIndex + 3] = imageData.data[srcIndex + 3];
     }
   }
   
-  return {
-    data: croppedData,
-    width: cropWidth,
-    height: cropHeight,
-    colorSpace: 'srgb',
-  } as ImageData;
+  return croppedImageData;
 }
 
 /**
@@ -446,7 +683,16 @@ export function removeBackgroundSimple(
   tolerance: number = 30
 ): ImageData {
   const { width, height, data } = imageData;
-  const resultData = new Uint8ClampedArray(data);
+  
+  // 使用 canvas 创建真正的 ImageData 实例
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  const resultImageData = ctx.createImageData(width, height);
+  
+  // 复制原始数据
+  resultImageData.data.set(data);
   
   for (let i = 0; i < width * height; i++) {
     const index = i * 4;
@@ -459,16 +705,11 @@ export function removeBackgroundSimple(
     
     if (colorsAreSimilar(pixelColor, backgroundColor, tolerance)) {
       // 设置为透明
-      resultData[index + 3] = 0;
+      resultImageData.data[index + 3] = 0;
     }
   }
   
-  return {
-    data: resultData,
-    width,
-    height,
-    colorSpace: 'srgb',
-  } as ImageData;
+  return resultImageData;
 }
 
 /**
@@ -534,10 +775,21 @@ export async function extractEmoji(
 
 /**
  * 从生成的大图中提取所有表情
+ * 支持两种模式：
+ * 1. 网格模式（grid）：按指定行列数均分切割，适用于规整排列的图片
+ * 2. 自动检测模式（auto）：基于连通区域检测，适用于不规则排列的图片
  */
 export async function extractAllEmojis(
   image: HTMLImageElement | Blob,
   options: {
+    /** 切割模式：'auto' 自动检测 | 'grid' 网格切割 */
+    mode?: 'auto' | 'grid';
+    /** 网格行数（grid 模式必填） */
+    rows?: number;
+    /** 网格列数（grid 模式必填） */
+    cols?: number;
+    /** 是否尝试自动检测网格 */
+    autoDetectGrid?: boolean;
     useAdvancedRemoval?: boolean;
     tolerance?: number;
     minArea?: number;
@@ -546,11 +798,15 @@ export async function extractAllEmojis(
   } = {}
 ): Promise<ExtractedEmoji[]> {
   const {
+    mode = 'auto',
+    rows,
+    cols,
+    autoDetectGrid = true,
     useAdvancedRemoval = true,
     tolerance = 30,
     minArea = 100,
     minSize = 10,
-    padding = 5,
+    padding = 0,
   } = options;
   
   // 获取 ImageData
@@ -562,8 +818,25 @@ export async function extractAllEmojis(
     imageData = getImageDataFromImage(image);
   }
   
-  // 检测所有表情区域
-  const boundingBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+  let boundingBoxes: BoundingBox[];
+  
+  if (mode === 'grid' && rows && cols) {
+    // 使用指定的网格切割
+    boundingBoxes = splitByGrid(imageData, { rows, cols });
+  } else if (autoDetectGrid) {
+    // 尝试自动检测网格
+    const detectedGrid = detectGrid(imageData, { tolerance });
+    if (detectedGrid) {
+      console.log(`Auto-detected grid: ${detectedGrid.rows}x${detectedGrid.cols}`);
+      boundingBoxes = splitByGrid(imageData, detectedGrid);
+    } else {
+      // 回退到连通区域检测
+      boundingBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+    }
+  } else {
+    // 使用连通区域检测
+    boundingBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+  }
   
   // 提取每个表情
   const emojis: ExtractedEmoji[] = [];
