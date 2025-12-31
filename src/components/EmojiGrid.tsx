@@ -6,6 +6,7 @@
 import { useCallback, useState } from 'react';
 import type { ExtractedEmoji } from '../types/image';
 import { downloadAllEmojis } from '../services';
+import { DEFAULT_STANDARD_SIZE } from '../services/downloadService';
 
 interface EmojiGridProps {
   /** 提取的表情列表 */
@@ -32,7 +33,6 @@ export function EmojiGrid({
 }: EmojiGridProps) {
   const handleSelect = useCallback(
     (id: string) => {
-      // 如果点击已选中的表情，取消选择
       onSelect(selectedId === id ? null : id);
     },
     [selectedId, onSelect]
@@ -40,6 +40,8 @@ export function EmojiGrid({
 
   // 批量下载状态
   const [isDownloading, setIsDownloading] = useState(false);
+  // 是否标准化尺寸（默认开启）
+  const [standardizeSize, setStandardizeSize] = useState(true);
 
   // 处理批量下载
   const handleBatchDownload = useCallback(async () => {
@@ -47,11 +49,14 @@ export function EmojiGrid({
     
     setIsDownloading(true);
     try {
-      await downloadAllEmojis(emojis);
+      await downloadAllEmojis(emojis, 'emoji_pack', {
+        standardize: standardizeSize,
+        size: DEFAULT_STANDARD_SIZE,
+      });
     } finally {
       setIsDownloading(false);
     }
-  }, [emojis, isDownloading]);
+  }, [emojis, isDownloading, standardizeSize]);
 
   // 加载状态
   if (isLoading) {
@@ -131,36 +136,49 @@ export function EmojiGrid({
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           提取的表情
         </h3>
-        <div className="flex items-center space-x-3">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            共 {emojis.length} 个
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          共 {emojis.length} 个
+        </span>
+      </div>
+
+      {/* 下载选项 */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={standardizeSize}
+            onChange={(e) => setStandardizeSize(e.target.checked)}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+          />
+          <span className="text-xs text-gray-600 dark:text-gray-300">
+            标准化尺寸 ({DEFAULT_STANDARD_SIZE}×{DEFAULT_STANDARD_SIZE})
           </span>
-          {/* 批量下载按钮 */}
-          <button
-            onClick={handleBatchDownload}
-            disabled={isDownloading || emojis.length === 0}
-            className="flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 
-                       border border-blue-300 dark:border-blue-600 rounded-md
-                       hover:bg-blue-50 dark:hover:bg-blue-900/20
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-colors duration-150"
-            title="下载全部表情"
-          >
-            {isDownloading ? (
-              <>
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1.5"></div>
-                打包中...
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                下载全部
-              </>
-            )}
-          </button>
-        </div>
+        </label>
+        
+        {/* 批量下载按钮 */}
+        <button
+          onClick={handleBatchDownload}
+          disabled={isDownloading || emojis.length === 0}
+          className="flex items-center px-3 py-1.5 text-xs font-medium text-white
+                     bg-blue-500 hover:bg-blue-600 rounded-md
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors duration-150"
+          title="下载全部表情"
+        >
+          {isDownloading ? (
+            <>
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1.5"></div>
+              打包中...
+            </>
+          ) : (
+            <>
+              <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              下载全部
+            </>
+          )}
+        </button>
       </div>
 
       {/* 表情网格 */}

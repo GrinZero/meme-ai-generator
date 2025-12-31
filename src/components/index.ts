@@ -6,6 +6,7 @@ export { ConfigPanel } from './ConfigPanel';
 export { ImageUploader } from './ImageUploader';
 export { PromptPanel } from './PromptPanel';
 export { GeneratePanel } from './GeneratePanel';
+export { ManualSplitPanel } from './ManualSplitPanel';
 export { EmojiGrid } from './EmojiGrid';
 export { EmojiEditor } from './EmojiEditor';
 export { 

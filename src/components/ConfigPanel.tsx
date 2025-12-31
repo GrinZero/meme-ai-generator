@@ -262,7 +262,7 @@ export function ConfigPanel() {
               value={apiConfig.model}
               onChange={(e) => setAPIConfig({ model: e.target.value })}
               placeholder="手动输入模型名称，如 gpt-4o"
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
             />
           ) : (
             <select
@@ -270,7 +270,7 @@ export function ConfigPanel() {
               value={apiConfig.model || (models.length > 0 ? models[0].id : '')}
               onChange={(e) => setAPIConfig({ model: e.target.value })}
               disabled={isLoadingModels}
-              className={`flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
+              className={`flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm ${
                 isLoadingModels ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -292,7 +292,7 @@ export function ConfigPanel() {
             type="button"
             onClick={handleRefresh}
             disabled={isLoadingModels}
-            className={`p-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`flex-shrink-0 p-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               isLoadingModels ? 'opacity-50 cursor-not-allowed' : ''
             }`}
             title="刷新模型列表"

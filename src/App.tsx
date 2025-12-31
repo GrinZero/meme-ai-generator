@@ -1,4 +1,4 @@
-import { ConfigPanel, ImageUploader, PromptPanel, GeneratePanel, EmojiGrid, EmojiEditor, SlideTransition } from './components';
+import { ConfigPanel, ImageUploader, PromptPanel, GeneratePanel, ManualSplitPanel, EmojiGrid, EmojiEditor, SlideTransition } from './components';
 import { useAppStore } from './store/useAppStore';
 import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from './services/imageValidation';
 import { extractAllEmojis } from './services/imageSplitter';
@@ -39,10 +39,13 @@ function App() {
 
     try {
       const emojis = await extractAllEmojis(generatedImage, {
-        useAdvancedRemoval: true,
+        mode: 'auto',
+        tryGridDetection: false,
+        useAdvancedRemoval: false, // 使用简单背景移除
         tolerance: 30,
         minArea: 100,
         minSize: 10,
+        debug: true,
       });
 
       if (emojis.length === 0) {
@@ -150,6 +153,11 @@ function App() {
                 <p className="split-hint">点击按钮自动检测并分割表情包</p>
               </div>
             )}
+
+            {/* 手动上传切割面板 */}
+            <div className="panel-section">
+              <ManualSplitPanel />
+            </div>
           </section>
 
           {/* 右侧面板：结果预览 + 编辑器 */}

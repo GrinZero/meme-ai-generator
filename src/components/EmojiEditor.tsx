@@ -5,22 +5,19 @@
  * - 显示选中的表情大图
  * - 编辑提示词输入框
  * - 重新生成按钮
+ * - 预览新生成的表情，让用户确认是否替换
  * - 下载单个表情
- * 
- * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5
  */
 
 import { useCallback, useState } from 'react';
 import type { ExtractedEmoji } from '../types/image';
 import { useAppStore } from '../store/useAppStore';
 import { regenerateEmoji, downloadSingleEmoji } from '../services';
+import { DEFAULT_STANDARD_SIZE } from '../services/downloadService';
 
 interface EmojiEditorProps {
-  /** 选中的表情 */
   emoji: ExtractedEmoji;
-  /** 表情索引（用于下载文件名） */
   emojiIndex: number;
-  /** 关闭编辑器回调 */
   onClose: () => void;
 }
 
@@ -38,6 +35,9 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
   } = useAppStore();
 
   const [error, setError] = useState<string | null>(null);
+  const [pendingEmoji, setPendingEmoji] = useState<ExtractedEmoji | null>(null);
+  // 是否标准化尺寸（默认开启）
+  const [standardizeSize, setStandardizeSize] = useState(true);
 
   // 处理重新生成
   const handleRegenerate = useCallback(async () => {
@@ -45,6 +45,7 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
 
     setError(null);
     setIsRegenerating(true);
+    setPendingEmoji(null);
 
     try {
       const result = await regenerateEmoji({
@@ -53,11 +54,12 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
         editPrompt,
         materialImages,
         referenceImages,
+        currentEmoji: emoji,
       });
 
       if (result.success && result.emoji) {
-        replaceEmoji(emoji.id, result.emoji);
-        setEditPrompt('');
+        // 不直接替换，而是显示预览让用户确认
+        setPendingEmoji(result.emoji);
         setError(null);
       } else {
         setError(result.error || '重新生成失败，请重试');
@@ -75,23 +77,41 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
     languagePreference,
     materialImages,
     referenceImages,
-    emoji.id,
+    emoji,
     setIsRegenerating,
-    replaceEmoji,
-    setEditPrompt,
   ]);
+
+  // 确认使用新表情
+  const handleConfirmReplace = useCallback(() => {
+    if (pendingEmoji) {
+      replaceEmoji(emoji.id, pendingEmoji);
+      setPendingEmoji(null);
+      setEditPrompt('');
+    }
+  }, [pendingEmoji, emoji.id, replaceEmoji, setEditPrompt]);
+
+  // 取消，保留原表情
+  const handleCancelReplace = useCallback(() => {
+    setPendingEmoji(null);
+  }, []);
 
   // 处理下载
   const handleDownload = useCallback(async () => {
-    await downloadSingleEmoji(emoji, emojiIndex);
-  }, [emoji, emojiIndex]);
+    await downloadSingleEmoji(emoji, emojiIndex, {
+      standardize: standardizeSize,
+      size: DEFAULT_STANDARD_SIZE,
+    });
+  }, [emoji, emojiIndex, standardizeSize]);
+
+  // 显示的表情（有待确认的就显示待确认的）
+  const displayEmoji = pendingEmoji || emoji;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
       {/* 头部 */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          编辑表情
+          {pendingEmoji ? '确认新表情' : '编辑表情'}
         </h2>
         <button
           onClick={onClose}
@@ -106,110 +126,142 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
 
       {/* 表情预览 */}
       <div className="mb-4">
-        <div
-          className="relative mx-auto w-32 h-32 sm:w-48 sm:h-48 rounded-lg overflow-hidden
-            bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZjBmMGYwIi8+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNmMGYwZjAiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')]
-            border border-gray-200 dark:border-gray-700"
-        >
-          <img
-            src={emoji.preview}
-            alt="选中的表情"
-            className="w-full h-full object-contain"
-          />
-        </div>
-      </div>
-
-      {/* 编辑提示词输入 */}
-      <div className="mb-4">
-        <label
-          htmlFor="edit-prompt"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-        >
-          重新生成提示词
-        </label>
-        <textarea
-          id="edit-prompt"
-          value={editPrompt}
-          onChange={(e) => setEditPrompt(e.target.value)}
-          placeholder="输入新的提示词来重新生成这个表情..."
-          rows={3}
-          disabled={isRegenerating}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
-                     rounded-md shadow-sm placeholder-gray-400
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     dark:bg-gray-700 dark:text-white
-                     disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
-                     resize-none"
-        />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          提示：描述你想要的表情风格或内容变化
-        </p>
-      </div>
-
-      {/* 错误提示 */}
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-          <div className="flex items-start">
-            <svg
-              className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* 操作按钮 */}
-      <div className="space-y-3">
-        {/* 重新生成按钮 */}
-        {isRegenerating ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-center py-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                正在重新生成...
-              </span>
+        {pendingEmoji ? (
+          // 对比显示：原图 vs 新图
+          <div className="flex gap-4 justify-center">
+            <div className="text-center">
+              <p className="text-xs text-gray-500 mb-2">原表情</p>
+              <div className="w-24 h-24 rounded-lg overflow-hidden bg-checkered border border-gray-200 dark:border-gray-700">
+                <img src={emoji.preview} alt="原表情" className="w-full h-full object-contain" />
+              </div>
+            </div>
+            <div className="flex items-center text-gray-400">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-green-600 mb-2">新表情</p>
+              <div className="w-24 h-24 rounded-lg overflow-hidden bg-checkered border-2 border-green-500">
+                <img src={pendingEmoji.preview} alt="新表情" className="w-full h-full object-contain" />
+              </div>
             </div>
           </div>
         ) : (
-          <button
-            onClick={handleRegenerate}
-            disabled={!editPrompt.trim()}
-            className={`w-full px-4 py-2 rounded-md font-medium transition-colors duration-150
-              ${editPrompt.trim()
-                ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-              }`}
+          <div
+            className="relative mx-auto w-32 h-32 sm:w-48 sm:h-48 rounded-lg overflow-hidden
+              bg-checkered border border-gray-200 dark:border-gray-700"
           >
-            重新生成
-          </button>
+            <img src={displayEmoji.preview} alt="选中的表情" className="w-full h-full object-contain" />
+          </div>
         )}
-
-        {/* 下载按钮 */}
-        <button
-          onClick={handleDownload}
-          disabled={isRegenerating}
-          className="w-full px-4 py-2 text-blue-600 dark:text-blue-400 
-                     border border-blue-300 dark:border-blue-600 rounded-md
-                     hover:bg-blue-50 dark:hover:bg-blue-900/20
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-colors duration-150"
-        >
-          <span className="flex items-center justify-center">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            下载表情
-          </span>
-        </button>
       </div>
+
+      {/* 待确认状态的操作按钮 */}
+      {pendingEmoji ? (
+        <div className="space-y-3">
+          <button
+            onClick={handleConfirmReplace}
+            className="w-full px-4 py-2 rounded-md font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
+          >
+            ✓ 使用新表情
+          </button>
+          <button
+            onClick={handleCancelReplace}
+            className="w-full px-4 py-2 rounded-md font-medium border border-gray-300 dark:border-gray-600 
+                       text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            ✗ 保留原表情
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* 编辑提示词输入 */}
+          <div className="mb-4">
+            <label htmlFor="edit-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              重新生成提示词
+            </label>
+            <textarea
+              id="edit-prompt"
+              value={editPrompt}
+              onChange={(e) => setEditPrompt(e.target.value)}
+              placeholder="输入新的提示词来重新生成这个表情..."
+              rows={3}
+              disabled={isRegenerating}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
+                         rounded-md shadow-sm placeholder-gray-400
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                         dark:bg-gray-700 dark:text-white
+                         disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
+                         resize-none"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              提示：描述你想要的表情风格或内容变化
+            </p>
+          </div>
+
+          {/* 错误提示 */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          )}
+
+          {/* 操作按钮 */}
+          <div className="space-y-3">
+            {isRegenerating ? (
+              <div className="flex items-center justify-center py-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">正在重新生成...</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleRegenerate}
+                disabled={!editPrompt.trim()}
+                className={`w-full px-4 py-2 rounded-md font-medium transition-colors duration-150
+                  ${editPrompt.trim()
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                重新生成
+              </button>
+            )}
+
+            {/* 下载选项 */}
+            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={standardizeSize}
+                  onChange={(e) => setStandardizeSize(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-600 dark:text-gray-300">
+                  标准化尺寸 ({DEFAULT_STANDARD_SIZE}×{DEFAULT_STANDARD_SIZE})
+                </span>
+              </label>
+              
+              <button
+                onClick={handleDownload}
+                disabled={isRegenerating}
+                className="w-full px-4 py-2 text-blue-600 dark:text-blue-400 
+                           border border-blue-300 dark:border-blue-600 rounded-md
+                           hover:bg-blue-50 dark:hover:bg-blue-900/20
+                           disabled:opacity-50 disabled:cursor-not-allowed
+                           transition-colors duration-150"
+              >
+                <span className="flex items-center justify-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  下载表情
+                </span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

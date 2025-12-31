@@ -8,7 +8,14 @@
 import type { APIConfig } from '../types/api';
 import type { UploadedImage, ExtractedEmoji } from '../types/image';
 import { generateImage } from './aiService';
-import { extractAllEmojis } from './imageSplitter';
+import { 
+  loadImageFromBlob, 
+  getImageDataFromImage, 
+  detectBackgroundColor,
+  removeBackgroundFloodFill,
+  imageDataToBlob,
+  imageDataToPreviewUrl,
+} from './imageSplitter';
 
 /**
  * 重新生成配置
@@ -19,6 +26,8 @@ export interface RegenerationConfig {
   editPrompt: string;
   materialImages: UploadedImage[];
   referenceImages: UploadedImage[];
+  /** 当前要重新生成的表情（会作为参考图发送给 AI） */
+  currentEmoji?: ExtractedEmoji;
 }
 
 /**
@@ -32,20 +41,15 @@ export interface RegenerationResult {
 
 /**
  * 构建单个表情重新生成的提示词
- * 确保生成的表情有纯色背景便于提取
  */
 export function buildRegenerationPrompt(
   languagePreference: string,
   editPrompt: string
 ): string {
-  const systemPrompt = `你是一个表情包设计师。请根据用户的要求重新生成一个表情包。
-
+  const systemPrompt = `
 要求：
-1. 生成的图片必须是相同的纯色背景
-2. 只生成一个表情，不要生成多个
-3. 表情要清晰、完整，便于后续提取
-4. 表情风格要参考用户提供的素材图
-5. 我希望你认真读取图片中的形象特点，结合图片中的实际形象进行设计`;
+1. 生成的图片必须是纯色背景，并且和主体颜色有强烈对比度
+2. 只生成一个表情，不要生成多个`;
 
   const parts = [systemPrompt];
 
@@ -59,13 +63,61 @@ export function buildRegenerationPrompt(
 }
 
 /**
+ * 将 ExtractedEmoji 转换为 UploadedImage 格式
+ */
+function emojiToUploadedImage(emoji: ExtractedEmoji): UploadedImage {
+  const file = new File([emoji.blob], 'current-emoji.png', { type: 'image/png' });
+  
+  return {
+    id: `emoji-${emoji.id}`,
+    file,
+    preview: emoji.preview,
+    type: 'reference',
+  };
+}
+
+// 生成唯一 ID
+const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+/**
+ * 对单张图片进行背景移除处理（不做切割）
+ */
+async function processGeneratedImage(
+  imageBlob: Blob,
+  tolerance: number = 30
+): Promise<ExtractedEmoji> {
+  const img = await loadImageFromBlob(imageBlob);
+  const imageData = getImageDataFromImage(img);
+  
+  // 检测背景色并移除
+  const backgroundColor = detectBackgroundColor(imageData, { tolerance });
+  const processedImageData = removeBackgroundFloodFill(imageData, backgroundColor, tolerance);
+  
+  const blob = await imageDataToBlob(processedImageData);
+  const preview = imageDataToPreviewUrl(processedImageData);
+  
+  return {
+    id: generateId(),
+    imageData: processedImageData,
+    blob,
+    preview,
+    boundingBox: {
+      x: 0,
+      y: 0,
+      width: imageData.width,
+      height: imageData.height,
+    },
+  };
+}
+
+/**
  * 重新生成单个表情
  * 
  * 流程：
- * 1. 构建重新生成提示词（确保纯色背景）
- * 2. 调用 AI API 生成新图片
- * 3. 自动分割提取新表情
- * 4. 返回提取的第一个表情
+ * 1. 构建重新生成提示词
+ * 2. 调用 AI API 生成新图片（包含当前表情作为参考）
+ * 3. 对生成的图片进行背景移除（不做切割）
+ * 4. 返回处理后的表情供用户确认
  */
 export async function regenerateEmoji(
   config: RegenerationConfig
@@ -76,16 +128,18 @@ export async function regenerateEmoji(
     editPrompt,
     materialImages,
     referenceImages,
+    currentEmoji,
   } = config;
 
   try {
-    // 1. 构建重新生成提示词
     const prompt = buildRegenerationPrompt(languagePreference, editPrompt);
 
-    // 2. 合并所有参考图片
     const allImages = [...materialImages, ...referenceImages];
+    
+    if (currentEmoji) {
+      allImages.push(emojiToUploadedImage(currentEmoji));
+    }
 
-    // 3. 调用 AI API 生成
     const generateResult = await generateImage(apiConfig, prompt, allImages);
 
     if (!generateResult.success || !generateResult.imageBlob) {
@@ -95,25 +149,12 @@ export async function regenerateEmoji(
       };
     }
 
-    // 4. 自动分割提取表情
-    const emojis = await extractAllEmojis(generateResult.imageBlob, {
-      useAdvancedRemoval: true,
-      tolerance: 30,
-      minArea: 100,
-      minSize: 10,
-    });
+    // 只做背景移除，不做切割
+    const emoji = await processGeneratedImage(generateResult.imageBlob, 30);
 
-    if (emojis.length === 0) {
-      return {
-        success: false,
-        error: '未能从生成的图片中提取表情，请重试',
-      };
-    }
-
-    // 5. 返回第一个提取的表情
     return {
       success: true,
-      emoji: emojis[0],
+      emoji,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '发生未知错误';

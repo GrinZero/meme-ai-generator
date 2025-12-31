@@ -389,15 +389,24 @@ export function mergeNearbyBoundingBoxes(
  */
 export function detectEmojis(
   imageData: ImageData,
-  config: Partial<RegionDetectionConfig & { mergeDistance?: number }> = {}
+  config: Partial<RegionDetectionConfig & { mergeDistance?: number; debug?: boolean }> = {}
 ): BoundingBox[] {
-  const { tolerance = DEFAULT_TOLERANCE } = config;
-  // 默认合并距离为图片较短边的 5%，处理文字游离问题
-  const defaultMergeDistance = Math.min(imageData.width, imageData.height) * 0.05;
+  const { tolerance = DEFAULT_TOLERANCE, debug = false } = config;
+  // 调整合并距离：使用图片较短边的 2%（之前是 5%，太大了）
+  const defaultMergeDistance = Math.min(imageData.width, imageData.height) * 0.02;
   const { mergeDistance = defaultMergeDistance } = config;
+  
+  if (debug) {
+    console.log(`[detectEmojis] Image size: ${imageData.width}x${imageData.height}`);
+    console.log(`[detectEmojis] Merge distance: ${mergeDistance.toFixed(1)}px`);
+  }
   
   // 1. 检测背景色
   const backgroundColor = detectBackgroundColor(imageData, { tolerance });
+  
+  if (debug) {
+    console.log(`[detectEmojis] Background color:`, backgroundColor);
+  }
   
   // 2. 创建二值化掩码
   const mask = createBinaryMask(imageData, backgroundColor, tolerance);
@@ -405,11 +414,23 @@ export function detectEmojis(
   // 3. 标记连通区域
   const { labels, regionCount } = labelConnectedRegions(mask);
   
+  if (debug) {
+    console.log(`[detectEmojis] Found ${regionCount} connected regions`);
+  }
+  
   // 4. 提取边界框
   const boxes = extractBoundingBoxes(labels, regionCount, config);
   
+  if (debug) {
+    console.log(`[detectEmojis] After filtering: ${boxes.length} boxes`);
+  }
+  
   // 5. 合并邻近区域（处理文字游离）
   const mergedBoxes = mergeNearbyBoundingBoxes(boxes, mergeDistance);
+  
+  if (debug) {
+    console.log(`[detectEmojis] After merging: ${mergedBoxes.length} boxes`);
+  }
   
   // 重新排序
   mergedBoxes.sort((a, b) => {
@@ -465,14 +486,35 @@ export function splitByGrid(
 }
 
 /**
+ * 网格检测结果
+ */
+export interface GridDetectionResult {
+  rows: number;
+  cols: number;
+  confidence: number; // 0-1 之间，表示检测置信度
+  rowSeparators: number[]; // 行分隔线位置
+  colSeparators: number[]; // 列分隔线位置
+}
+
+/**
  * 检测图片中的网格线（基于行/列像素相似度）
- * 返回推测的行数和列数
+ * 返回推测的行数、列数和置信度
  */
 export function detectGrid(
   imageData: ImageData,
-  config: { tolerance?: number; minCells?: number; maxCells?: number } = {}
-): { rows: number; cols: number } | null {
-  const { tolerance = 30, minCells = 2, maxCells = 6 } = config;
+  config: { 
+    tolerance?: number; 
+    minCells?: number; 
+    maxCells?: number;
+    minConfidence?: number; // 最小置信度阈值
+  } = {}
+): GridDetectionResult | null {
+  const { 
+    tolerance = 30, 
+    minCells = 2, 
+    maxCells = 6,
+    minConfidence = 0.7, // 默认要求 70% 置信度
+  } = config;
   const { width, height } = imageData;
   
   // 检测背景色
@@ -514,8 +556,13 @@ export function detectGrid(
   }
   
   // 找分隔区域（连续的高背景比例区域）
-  function findSeparators(ratios: number[], threshold: number = 0.9): number[] {
+  function findSeparators(
+    ratios: number[], 
+    threshold: number = 0.9,
+    minWidth: number = 3 // 最小分隔线宽度
+  ): { positions: number[]; avgRatio: number } {
     const separators: number[] = [];
+    const separatorRatios: number[] = [];
     let inSeparator = false;
     let separatorStart = 0;
     
@@ -527,27 +574,91 @@ export function detectGrid(
         }
       } else {
         if (inSeparator) {
-          // 记录分隔区域的中点
-          separators.push(Math.floor((separatorStart + i) / 2));
+          const separatorWidth = i - separatorStart;
+          // 只记录足够宽的分隔线
+          if (separatorWidth >= minWidth) {
+            const midPoint = Math.floor((separatorStart + i) / 2);
+            separators.push(midPoint);
+            // 计算这段分隔线的平均比例
+            const avgRatio = ratios.slice(separatorStart, i).reduce((a, b) => a + b, 0) / separatorWidth;
+            separatorRatios.push(avgRatio);
+          }
           inSeparator = false;
         }
       }
     }
     
-    return separators;
+    const avgRatio = separatorRatios.length > 0 
+      ? separatorRatios.reduce((a, b) => a + b, 0) / separatorRatios.length 
+      : 0;
+    
+    return { positions: separators, avgRatio };
   }
   
-  // 尝试不同的阈值找到合理的分隔
-  for (const threshold of [0.95, 0.9, 0.85, 0.8]) {
-    const rowSeparators = findSeparators(rowRatios, threshold);
-    const colSeparators = findSeparators(colRatios, threshold);
+  // 验证网格是否均匀分布
+  function validateGridUniformity(
+    separators: number[], 
+    totalLength: number
+  ): number {
+    if (separators.length === 0) return 1;
     
-    const rows = rowSeparators.length + 1;
-    const cols = colSeparators.length + 1;
+    // 计算每个单元格的大小
+    const cellSizes: number[] = [];
+    let prevPos = 0;
+    for (const sep of separators) {
+      cellSizes.push(sep - prevPos);
+      prevPos = sep;
+    }
+    cellSizes.push(totalLength - prevPos);
+    
+    // 计算单元格大小的标准差
+    const avgSize = cellSizes.reduce((a, b) => a + b, 0) / cellSizes.length;
+    const variance = cellSizes.reduce((sum, size) => sum + Math.pow(size - avgSize, 2), 0) / cellSizes.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // 变异系数（标准差/平均值），越小越均匀
+    const cv = stdDev / avgSize;
+    
+    // 转换为置信度分数（0-1），cv < 0.1 为完全均匀
+    return Math.max(0, 1 - cv * 5);
+  }
+  
+  let bestResult: GridDetectionResult | null = null;
+  let bestScore = 0;
+  
+  // 尝试不同的阈值找到最佳分隔
+  for (const threshold of [0.98, 0.95, 0.92, 0.9, 0.85]) {
+    const rowResult = findSeparators(rowRatios, threshold);
+    const colResult = findSeparators(colRatios, threshold);
+    
+    const rows = rowResult.positions.length + 1;
+    const cols = colResult.positions.length + 1;
     
     if (rows >= minCells && rows <= maxCells && cols >= minCells && cols <= maxCells) {
-      return { rows, cols };
+      // 计算置信度
+      const rowUniformity = validateGridUniformity(rowResult.positions, height);
+      const colUniformity = validateGridUniformity(colResult.positions, width);
+      const avgSeparatorRatio = (rowResult.avgRatio + colResult.avgRatio) / 2;
+      
+      // 综合置信度：分隔线清晰度 * 均匀度
+      const confidence = avgSeparatorRatio * 0.4 + rowUniformity * 0.3 + colUniformity * 0.3;
+      
+      if (confidence > bestScore) {
+        bestScore = confidence;
+        bestResult = {
+          rows,
+          cols,
+          confidence,
+          rowSeparators: rowResult.positions,
+          colSeparators: colResult.positions,
+        };
+      }
     }
+  }
+  
+  // 只返回置信度足够高的结果
+  if (bestResult && bestResult.confidence >= minConfidence) {
+    return bestResult;
   }
   
   return null;
@@ -676,6 +787,10 @@ export async function removeBackground(imageBlob: Blob): Promise<Blob> {
 /**
  * 简单的背景移除（基于颜色容差）
  * 用于快速预览或当 @imgly/background-removal 不可用时
+ * 
+ * 注意：这个方法会把所有与背景色相似的像素都变透明，
+ * 如果主体颜色与背景相似，可能会出现问题。
+ * 推荐使用 removeBackgroundFloodFill 代替。
  */
 export function removeBackgroundSimple(
   imageData: ImageData,
@@ -713,6 +828,229 @@ export function removeBackgroundSimple(
 }
 
 /**
+ * 使用 Flood Fill 从边缘移除背景
+ * 只移除与边缘相连的背景色区域，保护主体内部的相似颜色
+ * 
+ * @param featherEdge - 是否对边缘进行羽化处理，移除渐变过渡色
+ * @param fillEnclosed - 是否填充被包围的背景区域（如文字和主体之间的空隙）
+ */
+export function removeBackgroundFloodFill(
+  imageData: ImageData,
+  backgroundColor: RGBAColor,
+  tolerance: number = 30,
+  featherEdge: boolean = true,
+  fillEnclosed: boolean = true
+): ImageData {
+  const { width, height, data } = imageData;
+  
+  // 创建结果 ImageData
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  const resultImageData = ctx.createImageData(width, height);
+  resultImageData.data.set(data);
+  
+  // 创建访问标记数组
+  const visited = new Uint8Array(width * height);
+  // 标记哪些像素被移除了
+  const removed = new Uint8Array(width * height);
+  
+  // 获取像素颜色
+  const getPixelColorAt = (x: number, y: number): RGBAColor => {
+    const index = (y * width + x) * 4;
+    return {
+      r: data[index],
+      g: data[index + 1],
+      b: data[index + 2],
+      a: data[index + 3],
+    };
+  };
+  
+  // 检查像素是否为背景色
+  const isBackgroundPixel = (x: number, y: number): boolean => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    return colorsAreSimilar(getPixelColorAt(x, y), backgroundColor, tolerance);
+  };
+  
+  // 4-连通方向
+  const directions = [
+    { dx: 0, dy: -1 },  // 上
+    { dx: 0, dy: 1 },   // 下
+    { dx: -1, dy: 0 },  // 左
+    { dx: 1, dy: 0 },   // 右
+  ];
+  
+  // BFS Flood Fill 函数
+  const floodFillFrom = (startPoints: { x: number; y: number }[]) => {
+    const queue = [...startPoints];
+    
+    for (const { x, y } of startPoints) {
+      const idx = y * width + x;
+      if (!visited[idx]) {
+        visited[idx] = 1;
+      }
+    }
+    
+    while (queue.length > 0) {
+      const { x, y } = queue.shift()!;
+      const arrayIdx = y * width + x;
+      
+      // 将当前像素设为透明
+      const pixelIndex = arrayIdx * 4;
+      resultImageData.data[pixelIndex + 3] = 0;
+      removed[arrayIdx] = 1;
+      
+      // 检查相邻像素
+      for (const { dx, dy } of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+          const nIdx = ny * width + nx;
+          if (!visited[nIdx] && isBackgroundPixel(nx, ny)) {
+            visited[nIdx] = 1;
+            queue.push({ x: nx, y: ny });
+          }
+        }
+      }
+    }
+  };
+  
+  // 第一步：从边缘开始填充
+  const edgePoints: { x: number; y: number }[] = [];
+  
+  for (let x = 0; x < width; x++) {
+    if (isBackgroundPixel(x, 0)) edgePoints.push({ x, y: 0 });
+    if (isBackgroundPixel(x, height - 1)) edgePoints.push({ x, y: height - 1 });
+  }
+  
+  for (let y = 0; y < height; y++) {
+    if (isBackgroundPixel(0, y)) edgePoints.push({ x: 0, y });
+    if (isBackgroundPixel(width - 1, y)) edgePoints.push({ x: width - 1, y });
+  }
+  
+  floodFillFrom(edgePoints);
+  
+  // 第二步：填充被包围的背景区域
+  // 策略：扫描所有未访问的背景色像素，如果它们形成的区域面积较大且主要是背景色，则移除
+  if (fillEnclosed) {
+    const minEnclosedArea = Math.min(width, height) * 5; // 最小面积阈值
+    
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        if (!visited[idx] && isBackgroundPixel(x, y)) {
+          // 找到一个未访问的背景色像素，检查这个区域
+          const regionPixels: { x: number; y: number }[] = [];
+          const regionQueue: { x: number; y: number }[] = [{ x, y }];
+          const regionVisited = new Set<number>();
+          regionVisited.add(idx);
+          
+          while (regionQueue.length > 0) {
+            const { x: cx, y: cy } = regionQueue.shift()!;
+            regionPixels.push({ x: cx, y: cy });
+            
+            for (const { dx, dy } of directions) {
+              const nx = cx + dx;
+              const ny = cy + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const nIdx = ny * width + nx;
+                if (!visited[nIdx] && !regionVisited.has(nIdx) && isBackgroundPixel(nx, ny)) {
+                  regionVisited.add(nIdx);
+                  regionQueue.push({ x: nx, y: ny });
+                }
+              }
+            }
+          }
+          
+          // 如果区域面积足够大，认为是被包围的背景，移除它
+          if (regionPixels.length >= minEnclosedArea) {
+            for (const { x: px, y: py } of regionPixels) {
+              const pIdx = py * width + px;
+              visited[pIdx] = 1;
+              removed[pIdx] = 1;
+              const pixelIndex = pIdx * 4;
+              resultImageData.data[pixelIndex + 3] = 0;
+            }
+          } else {
+            // 标记为已访问但不移除（可能是主体内部的小区域）
+            for (const { x: px, y: py } of regionPixels) {
+              visited[py * width + px] = 1;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 边缘羽化：处理被移除区域边缘的渐变过渡色
+  if (featherEdge) {
+    const featherTolerance = tolerance * 2;
+    const edgePixels: { x: number; y: number }[] = [];
+    
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        if (removed[idx]) continue;
+        
+        let adjacentToRemoved = false;
+        for (const { dx, dy } of directions) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            if (removed[ny * width + nx]) {
+              adjacentToRemoved = true;
+              break;
+            }
+          }
+        }
+        
+        if (adjacentToRemoved) {
+          const pixelColor = getPixelColorAt(x, y);
+          if (colorsAreSimilar(pixelColor, backgroundColor, featherTolerance)) {
+            edgePixels.push({ x, y });
+          }
+        }
+      }
+    }
+    
+    const maxFeatherRounds = 3;
+    for (let round = 0; round < maxFeatherRounds && edgePixels.length > 0; round++) {
+      const nextEdgePixels: { x: number; y: number }[] = [];
+      
+      for (const { x, y } of edgePixels) {
+        const idx = y * width + x;
+        if (removed[idx]) continue;
+        
+        const pixelIndex = idx * 4;
+        resultImageData.data[pixelIndex + 3] = 0;
+        removed[idx] = 1;
+        
+        for (const { dx, dy } of directions) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            const nIdx = ny * width + nx;
+            if (!removed[nIdx]) {
+              const nPixelColor = getPixelColorAt(nx, ny);
+              if (colorsAreSimilar(nPixelColor, backgroundColor, featherTolerance)) {
+                nextEdgePixels.push({ x: nx, y: ny });
+              }
+            }
+          }
+        }
+      }
+      
+      edgePixels.length = 0;
+      edgePixels.push(...nextEdgePixels);
+    }
+  }
+  
+  return resultImageData;
+}
+
+/**
  * 提取单个表情
  * 完整流程：裁剪 -> 背景移除 -> 输出透明 PNG
  */
@@ -720,44 +1058,50 @@ export async function extractEmoji(
   imageData: ImageData,
   boundingBox: BoundingBox,
   options: {
+    /** 是否使用 AI 背景移除（不推荐用于表情包） */
     useAdvancedRemoval?: boolean;
     tolerance?: number;
     padding?: number;
+    /** 是否移除背景（设为 false 则保留原图） */
+    removeBackground?: boolean;
   } = {}
 ): Promise<ExtractedEmoji> {
   const { 
-    useAdvancedRemoval = true, 
+    useAdvancedRemoval = false, // 默认不使用 AI 移除
     tolerance = 30,
     padding = 5,
+    removeBackground: shouldRemoveBackground = true,
   } = options;
   
   // 1. 裁剪图片
   const croppedImageData = cropImage(imageData, boundingBox, padding);
   
-  // 2. 检测背景色
-  const backgroundColor = detectBackgroundColor(croppedImageData, { tolerance });
-  
   let finalImageData: ImageData;
   let blob: Blob;
   
-  if (useAdvancedRemoval) {
+  if (!shouldRemoveBackground) {
+    // 不移除背景，直接使用裁剪后的图片
+    finalImageData = croppedImageData;
+    blob = await imageDataToBlob(finalImageData);
+  } else if (useAdvancedRemoval) {
+    // 使用 AI 背景移除（不推荐）
     try {
-      // 使用高级背景移除
       const croppedBlob = await imageDataToBlob(croppedImageData);
       blob = await removeBackground(croppedBlob);
       
-      // 从 blob 获取 ImageData
       const img = await loadImageFromBlob(blob);
       finalImageData = getImageDataFromImage(img);
     } catch (error) {
-      console.warn('Advanced background removal failed, falling back to simple removal:', error);
-      // 回退到简单背景移除
-      finalImageData = removeBackgroundSimple(croppedImageData, backgroundColor, tolerance);
+      console.warn('Advanced background removal failed, falling back to flood fill:', error);
+      const backgroundColor = detectBackgroundColor(croppedImageData, { tolerance });
+      finalImageData = removeBackgroundFloodFill(croppedImageData, backgroundColor, tolerance);
       blob = await imageDataToBlob(finalImageData);
     }
   } else {
-    // 使用简单背景移除
-    finalImageData = removeBackgroundSimple(croppedImageData, backgroundColor, tolerance);
+    // 使用 Flood Fill 背景移除（推荐用于表情包）
+    // 只移除与边缘相连的背景，保护主体内部的相似颜色
+    const backgroundColor = detectBackgroundColor(croppedImageData, { tolerance });
+    finalImageData = removeBackgroundFloodFill(croppedImageData, backgroundColor, tolerance);
     blob = await imageDataToBlob(finalImageData);
   }
   
@@ -776,37 +1120,47 @@ export async function extractEmoji(
 /**
  * 从生成的大图中提取所有表情
  * 支持两种模式：
- * 1. 网格模式（grid）：按指定行列数均分切割，适用于规整排列的图片
- * 2. 自动检测模式（auto）：基于连通区域检测，适用于不规则排列的图片
+ * 1. 自动检测模式（auto，默认）：优先使用连通区域检测，在高置信度时才使用网格检测
+ * 2. 网格模式（grid）：强制按指定行列数均分切割
  */
 export async function extractAllEmojis(
   image: HTMLImageElement | Blob,
   options: {
-    /** 切割模式：'auto' 自动检测 | 'grid' 网格切割 */
+    /** 切割模式：'auto' 自动检测（默认） | 'grid' 强制网格切割 */
     mode?: 'auto' | 'grid';
     /** 网格行数（grid 模式必填） */
     rows?: number;
     /** 网格列数（grid 模式必填） */
     cols?: number;
-    /** 是否尝试自动检测网格 */
-    autoDetectGrid?: boolean;
+    /** 是否尝试网格检测（auto 模式下有效） */
+    tryGridDetection?: boolean;
+    /** 网格检测最小置信度（0-1） */
+    gridConfidence?: number;
+    /** 是否使用 AI 背景移除（不推荐用于表情包） */
     useAdvancedRemoval?: boolean;
     tolerance?: number;
     minArea?: number;
     minSize?: number;
     padding?: number;
+    /** 调试模式：输出详细信息 */
+    debug?: boolean;
+    /** 是否移除背景 */
+    removeBackground?: boolean;
   } = {}
 ): Promise<ExtractedEmoji[]> {
   const {
     mode = 'auto',
     rows,
     cols,
-    autoDetectGrid = true,
-    useAdvancedRemoval = true,
+    tryGridDetection = false, // 默认关闭网格检测
+    gridConfidence = 0.85,
+    useAdvancedRemoval = false, // 默认使用简单背景移除
     tolerance = 30,
     minArea = 100,
     minSize = 10,
     padding = 0,
+    debug = false,
+    removeBackground = true,
   } = options;
   
   // 获取 ImageData
@@ -819,39 +1173,109 @@ export async function extractAllEmojis(
   }
   
   let boundingBoxes: BoundingBox[];
+  let detectionMethod = 'unknown';
   
   if (mode === 'grid' && rows && cols) {
-    // 使用指定的网格切割
+    // 强制使用指定的网格切割
     boundingBoxes = splitByGrid(imageData, { rows, cols });
-  } else if (autoDetectGrid) {
-    // 尝试自动检测网格
-    const detectedGrid = detectGrid(imageData, { tolerance });
-    if (detectedGrid) {
-      console.log(`Auto-detected grid: ${detectedGrid.rows}x${detectedGrid.cols}`);
-      boundingBoxes = splitByGrid(imageData, detectedGrid);
-    } else {
-      // 回退到连通区域检测
-      boundingBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+    detectionMethod = 'forced-grid';
+    if (debug) {
+      console.log(`[ImageSplitter] Using forced grid: ${rows}x${cols}`);
     }
   } else {
-    // 使用连通区域检测
-    boundingBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+    // 自动检测模式：默认使用连通区域，可选网格检测
+    let gridResult: GridDetectionResult | null = null;
+    
+    if (tryGridDetection) {
+      // 尝试网格检测
+      gridResult = detectGrid(imageData, { 
+        tolerance,
+        minConfidence: gridConfidence,
+      });
+      
+      if (debug && gridResult) {
+        console.log(
+          `[ImageSplitter] Grid detected: ${gridResult.rows}x${gridResult.cols} ` +
+          `(confidence: ${(gridResult.confidence * 100).toFixed(1)}%)`
+        );
+      }
+    }
+    
+    // 进行连通区域检测
+    const connectedBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+    
+    if (debug) {
+      console.log(`[ImageSplitter] Connected components found: ${connectedBoxes.length} regions`);
+    }
+    
+    // 决策：只在网格检测置信度足够高且结果合理时使用网格
+    if (gridResult && gridResult.confidence >= gridConfidence) {
+      const gridBoxes = splitByGrid(imageData, {
+        rows: gridResult.rows,
+        cols: gridResult.cols,
+      });
+      
+      // 验证：网格数量应该接近连通区域数量
+      const countDiff = Math.abs(gridBoxes.length - connectedBoxes.length);
+      const countRatio = countDiff / Math.max(gridBoxes.length, connectedBoxes.length);
+      
+      if (debug) {
+        console.log(
+          `[ImageSplitter] Grid vs Connected: ${gridBoxes.length} vs ${connectedBoxes.length} ` +
+          `(diff ratio: ${(countRatio * 100).toFixed(1)}%)`
+        );
+      }
+      
+      // 如果数量差异小于 20%，使用网格；否则使用连通区域
+      if (countRatio < 0.2) {
+        boundingBoxes = gridBoxes;
+        detectionMethod = 'grid';
+        if (debug) {
+          console.log(`[ImageSplitter] ✓ Using grid detection`);
+        }
+      } else {
+        boundingBoxes = connectedBoxes;
+        detectionMethod = 'connected-components';
+        if (debug) {
+          console.log(`[ImageSplitter] ✗ Grid rejected, using connected components`);
+        }
+      }
+    } else {
+      // 使用连通区域检测
+      boundingBoxes = connectedBoxes;
+      detectionMethod = 'connected-components';
+      if (debug) {
+        console.log(`[ImageSplitter] Using connected components (grid detection ${tryGridDetection ? 'failed' : 'disabled'})`);
+      }
+    }
+  }
+  
+  if (debug) {
+    console.log(`[ImageSplitter] Final bounding boxes:`, boundingBoxes);
   }
   
   // 提取每个表情
   const emojis: ExtractedEmoji[] = [];
-  for (const box of boundingBoxes) {
+  for (let i = 0; i < boundingBoxes.length; i++) {
+    const box = boundingBoxes[i];
     try {
       const emoji = await extractEmoji(imageData, box, {
         useAdvancedRemoval,
         tolerance,
         padding,
+        removeBackground,
       });
       emojis.push(emoji);
+      
+      if (debug) {
+        console.log(`[ImageSplitter] Extracted emoji ${i + 1}/${boundingBoxes.length}`);
+      }
     } catch (error) {
-      console.error('Failed to extract emoji:', error);
+      console.error(`[ImageSplitter] Failed to extract emoji ${i + 1}:`, error);
     }
   }
+  
+  console.log(`[ImageSplitter] ✓ Extracted ${emojis.length} emojis using ${detectionMethod}`);
   
   return emojis;
 }

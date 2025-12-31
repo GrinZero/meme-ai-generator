@@ -418,9 +418,6 @@ export async function generateWithOpenAIChat(
     }
 
     const message = choices[0].message;
-    if (!message || !message.content) {
-      throw new AIError('INVALID_RESPONSE', 'AI 返回了无效的响应');
-    }
 
     // OpenAI 的图片生成通常返回 URL 或 base64
     // 对于 chat completions，我们需要检查是否有图片数据

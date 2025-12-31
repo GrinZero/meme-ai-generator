@@ -106,6 +106,12 @@ export {
   downloadAllEmojis,
   createZipBlob,
   getZipFileList,
+  standardizeImage,
+  DEFAULT_STANDARD_SIZE,
+} from './downloadService';
+
+export type {
+  DownloadOptions,
 } from './downloadService';
 
 export {
