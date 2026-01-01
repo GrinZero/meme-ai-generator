@@ -9,6 +9,8 @@ export { GeneratePanel } from './GeneratePanel';
 export { ManualSplitPanel } from './ManualSplitPanel';
 export { EmojiGrid } from './EmojiGrid';
 export { EmojiEditor } from './EmojiEditor';
+export { SettingsDrawer } from './SettingsDrawer';
+export { WorkPanel } from './WorkPanel';
 export { 
   Skeleton, 
   SkeletonText, 

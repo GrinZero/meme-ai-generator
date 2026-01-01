@@ -5,7 +5,7 @@
  * - 显示选中的表情大图
  * - 编辑提示词输入框
  * - 重新生成按钮
- * - 预览新生成的表情，让用户确认是否替换
+ * - 预览新生成的表情，让用户确认是否替换或追加
  * - 下载单个表情
  */
 
@@ -21,6 +21,8 @@ interface EmojiEditorProps {
   onClose: () => void;
 }
 
+type ConfirmAction = 'replace' | 'append';
+
 export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
   const {
     apiConfig,
@@ -32,6 +34,7 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
     setEditPrompt,
     setIsRegenerating,
     replaceEmoji,
+    appendEmojis,
   } = useAppStore();
 
   const [error, setError] = useState<string | null>(null);
@@ -81,14 +84,18 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
     setIsRegenerating,
   ]);
 
-  // 确认使用新表情
-  const handleConfirmReplace = useCallback(() => {
+  // 确认操作：替换或追加
+  const handleConfirm = useCallback((action: ConfirmAction) => {
     if (pendingEmoji) {
-      replaceEmoji(emoji.id, pendingEmoji);
+      if (action === 'replace') {
+        replaceEmoji(emoji.id, pendingEmoji);
+      } else {
+        appendEmojis([pendingEmoji]);
+      }
       setPendingEmoji(null);
       setEditPrompt('');
     }
-  }, [pendingEmoji, emoji.id, replaceEmoji, setEditPrompt]);
+  }, [pendingEmoji, emoji.id, replaceEmoji, appendEmojis, setEditPrompt]);
 
   // 取消，保留原表情
   const handleCancelReplace = useCallback(() => {
@@ -161,17 +168,29 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
       {pendingEmoji ? (
         <div className="space-y-3">
           <button
-            onClick={handleConfirmReplace}
-            className="w-full px-4 py-2 rounded-md font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
+            onClick={() => handleConfirm('replace')}
+            className="w-full px-4 py-2 rounded-md font-medium bg-green-500 hover:bg-green-600 text-white transition-colors flex items-center justify-center gap-2"
           >
-            ✓ 使用新表情
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            替换原表情
+          </button>
+          <button
+            onClick={() => handleConfirm('append')}
+            className="w-full px-4 py-2 rounded-md font-medium bg-blue-500 hover:bg-blue-600 text-white transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            追加为新表情
           </button>
           <button
             onClick={handleCancelReplace}
             className="w-full px-4 py-2 rounded-md font-medium border border-gray-300 dark:border-gray-600 
                        text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            ✗ 保留原表情
+            取消
           </button>
         </div>
       ) : (

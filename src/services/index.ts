@@ -78,6 +78,7 @@ export {
   removeBackground,
   extractEmoji,
   extractAllEmojis,
+  extractAllEmojisWithAI,
   getImageDataFromImage,
   loadImageFromBlob,
 } from './imageSplitter';
@@ -86,6 +87,8 @@ export type {
   RGBAColor,
   BackgroundDetectionConfig,
   RegionDetectionConfig,
+  AIExtractionOptions,
+  AIExtractionResult,
 } from './imageSplitter';
 
 export {
@@ -131,3 +134,25 @@ export type {
   ModelInfo,
   FetchModelsResult,
 } from './modelListService';
+
+export {
+  isValidPolygon,
+  clampCoordinates,
+  normalizeCoordinates,
+  rectangleToBoundingBox,
+  boundingBoxToPolygon,
+} from './coordinateUtils';
+
+export {
+  AISegmentationService,
+  createAISegmentationService,
+  DEFAULT_AI_SEGMENTATION_CONFIG,
+} from './aiSegmentationService';
+
+export {
+  calculatePolygonBoundingBox,
+  isConvexPolygon,
+  isPointInPolygon,
+  cropWithPolygon,
+  extractEmojisFromRegions,
+} from './polygonCropper';

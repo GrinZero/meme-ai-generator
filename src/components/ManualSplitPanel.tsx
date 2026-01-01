@@ -4,17 +4,18 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { extractAllEmojis } from '../services/imageSplitter';
+import { extractAllEmojis, extractAllEmojisWithAI } from '../services/imageSplitter';
 import { validateUploadFiles } from '../services/imageValidation';
 import { useAppStore } from '../store/useAppStore';
 
 export function ManualSplitPanel() {
-  const { setExtractedEmojis } = useAppStore();
+  const { setExtractedEmojis, apiConfig, aiSegmentationConfig, manualSplitConfig } = useAppStore();
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSplitting, setIsSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [splitMethod, setSplitMethod] = useState<'ai' | 'fallback' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 处理文件上传
@@ -99,17 +100,42 @@ export function ManualSplitPanel() {
 
     setIsSplitting(true);
     setError(null);
+    setSplitMethod(null);
 
     try {
-      const emojis = await extractAllEmojis(uploadedImage, {
-        mode: 'auto',
-        tryGridDetection: false,
-        useAdvancedRemoval: false, // 使用简单背景移除
-        tolerance: 30,
-        minArea: 100,
-        minSize: 10,
-        debug: true,
-      });
+      let emojis;
+      let method: 'ai' | 'fallback' = 'fallback';
+
+      // 根据全局配置决定使用 AI 分割还是传统分割
+      if (aiSegmentationConfig.enabled && apiConfig.apiKey) {
+        const result = await extractAllEmojisWithAI(uploadedImage, {
+          apiConfig,
+          aiConfig: aiSegmentationConfig,
+          padding: 5,
+          debug: true,
+          fallbackOptions: {
+            tolerance: manualSplitConfig.tolerance,
+            minArea: manualSplitConfig.minArea,
+            minSize: manualSplitConfig.minSize,
+            removeBackground: false,
+          },
+        });
+        emojis = result.emojis;
+        method = result.didFallback ? 'fallback' : 'ai';
+      } else {
+        emojis = await extractAllEmojis(uploadedImage, {
+          mode: 'auto',
+          tryGridDetection: false,
+          useAdvancedRemoval: false,
+          tolerance: manualSplitConfig.tolerance,
+          minArea: manualSplitConfig.minArea,
+          minSize: manualSplitConfig.minSize,
+          mergeDistancePercent: manualSplitConfig.mergeDistancePercent,
+          debug: true,
+        });
+      }
+
+      setSplitMethod(method);
 
       if (emojis.length === 0) {
         setError('未能检测到表情包，请确保图片背景为纯色');
@@ -128,7 +154,7 @@ export function ManualSplitPanel() {
     } finally {
       setIsSplitting(false);
     }
-  }, [uploadedImage, previewUrl, setExtractedEmojis]);
+  }, [uploadedImage, previewUrl, setExtractedEmojis, apiConfig, aiSegmentationConfig]);
 
   return (
     <div className="card">
@@ -238,9 +264,19 @@ export function ManualSplitPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
                 </svg>
                 开始切割
+                {aiSegmentationConfig.enabled && apiConfig.apiKey && (
+                  <span className="text-xs opacity-75">(AI)</span>
+                )}
               </>
             )}
           </button>
+          
+          {/* 分割方式提示 */}
+          {splitMethod && (
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+              {splitMethod === 'ai' ? '✨ 使用 AI 智能分割' : '📐 使用传统算法分割'}
+            </p>
+          )}
         </div>
       )}
 

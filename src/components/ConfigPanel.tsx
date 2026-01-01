@@ -3,7 +3,7 @@
  * 提供 API Key、Base URL、API 风格和模型选择的配置界面
  */
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { validateAPIConfig } from '../services/configValidation';
 import { clearCache } from '../services/modelListService';
@@ -19,7 +19,14 @@ export function ConfigPanel() {
     isLoadingModels,
     modelListError,
     fetchModelList,
+    aiSegmentationConfig,
+    toggleAISegmentation,
+    manualSplitConfig,
+    setManualSplitConfig,
+    resetManualSplitConfig,
   } = useAppStore();
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const validationResult = validateAPIConfig(apiConfig.apiKey, apiConfig.baseUrl);
   const validationErrors = validationResult.errors;
@@ -339,6 +346,164 @@ export function ConfigPanel() {
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           设置生成表情包文字的语言偏好
         </p>
+      </div>
+
+      {/* AI 智能分割开关 */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              AI 智能分割（beta）
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {aiSegmentationConfig.enabled
+                ? '使用 AI 视觉模型识别表情区域'
+                : '使用传统连通区域检测算法'}
+            </p>
+          </div>
+          <button
+            onClick={toggleAISegmentation}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              aiSegmentationConfig.enabled
+                ? 'bg-blue-500'
+                : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+            role="switch"
+            aria-checked={aiSegmentationConfig.enabled}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                aiSegmentationConfig.enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* 切割算法高级设置 */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center justify-between w-full text-left"
+        >
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            切割算法参数
+          </span>
+          <svg
+            className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showAdvanced ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        
+        {showAdvanced && (
+          <div className="mt-4 space-y-4">
+            {/* 颜色容差 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  颜色容差
+                </label>
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
+                  {manualSplitConfig.tolerance}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                value={manualSplitConfig.tolerance}
+                onChange={(e) => setManualSplitConfig({ tolerance: Number(e.target.value) })}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                判断像素是否为背景色的阈值，值越大越宽松
+              </p>
+            </div>
+
+            {/* 最小区域面积 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  最小区域面积
+                </label>
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
+                  {manualSplitConfig.minArea}px²
+                </span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="500"
+                step="10"
+                value={manualSplitConfig.minArea}
+                onChange={(e) => setManualSplitConfig({ minArea: Number(e.target.value) })}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                过滤小于此面积的噪点区域
+              </p>
+            </div>
+
+            {/* 最小边界尺寸 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  最小边界尺寸
+                </label>
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
+                  {manualSplitConfig.minSize}px
+                </span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                value={manualSplitConfig.minSize}
+                onChange={(e) => setManualSplitConfig({ minSize: Number(e.target.value) })}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                过滤宽或高小于此值的区域
+              </p>
+            </div>
+
+            {/* 合并距离 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  合并距离
+                </label>
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
+                  {manualSplitConfig.mergeDistancePercent}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="0.5"
+                value={manualSplitConfig.mergeDistancePercent}
+                onChange={(e) => setManualSplitConfig({ mergeDistancePercent: Number(e.target.value) })}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                相邻区域合并阈值，基于图片短边的百分比
+              </p>
+            </div>
+
+            {/* 重置按钮 */}
+            <button
+              onClick={resetManualSplitConfig}
+              className="w-full py-2 px-3 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              恢复默认值
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,71 +1,22 @@
-import { ConfigPanel, ImageUploader, PromptPanel, GeneratePanel, ManualSplitPanel, EmojiGrid, EmojiEditor, SlideTransition } from './components';
+import { SettingsDrawer, WorkPanel, EmojiGrid, EmojiEditor, SlideTransition } from './components';
 import { useAppStore } from './store/useAppStore';
-import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from './services/imageValidation';
-import { extractAllEmojis } from './services/imageSplitter';
-import { useState, useCallback } from 'react';
 import './App.css';
 
 function App() {
   const {
-    materialImages,
-    referenceImages,
-    addMaterialImage,
-    addReferenceImage,
-    removeImage,
-    generatedImage,
     extractedEmojis,
-    setExtractedEmojis,
     selectedEmojiId,
     selectEmoji,
+    deleteEmoji,
   } = useAppStore();
 
-  const [isSplitting, setIsSplitting] = useState(false);
-  const [splitError, setSplitError] = useState<string | null>(null);
-
-  const handleMaterialUpload = (files: File[]) => {
-    files.forEach((file) => addMaterialImage(file));
-  };
-
-  const handleReferenceUpload = (files: File[]) => {
-    files.forEach((file) => addReferenceImage(file));
-  };
-
-  // 分割表情
-  const handleSplitEmojis = useCallback(async () => {
-    if (!generatedImage) return;
-
-    setIsSplitting(true);
-    setSplitError(null);
-
-    try {
-      const emojis = await extractAllEmojis(generatedImage, {
-        mode: 'auto',
-        tryGridDetection: false,
-        useAdvancedRemoval: false, // 使用简单背景移除
-        tolerance: 30,
-        minArea: 100,
-        minSize: 10,
-        debug: true,
-      });
-
-      if (emojis.length === 0) {
-        setSplitError('未能检测到表情包，请确保图片背景为纯色');
-      } else {
-        setExtractedEmojis(emojis);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '分割失败';
-      setSplitError(errorMessage);
-    } finally {
-      setIsSplitting(false);
-    }
-  }, [generatedImage, setExtractedEmojis]);
-
-  // 获取选中的表情
   const selectedEmoji = extractedEmojis.find((e) => e.id === selectedEmojiId);
 
   return (
     <div className="app-container">
+      {/* 设置抽屉 */}
+      <SettingsDrawer />
+
       {/* 顶部导航栏 */}
       <header className="app-header">
         <div className="header-content">
@@ -77,99 +28,25 @@ function App() {
         </div>
       </header>
 
-      {/* 主内容区域 */}
+      {/* 主内容区域 - 两栏布局 */}
       <main className="app-main">
-        <div className="main-grid">
-          {/* 左侧面板：配置 + 上传 */}
-          <aside className="panel-left">
-            <div className="panel-section">
-              <ConfigPanel />
-            </div>
-            
-            <div className="panel-section card">
-              <h2 className="section-title">
-                <svg className="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                图片上传
-              </h2>
-              
-              <div className="upload-sections">
-                <ImageUploader
-                  type="material"
-                  maxCount={MATERIAL_IMAGE_LIMIT}
-                  images={materialImages}
-                  onUpload={handleMaterialUpload}
-                  onRemove={(id) => removeImage(id, 'material')}
-                  title={`素材图（最多 ${MATERIAL_IMAGE_LIMIT} 张）`}
-                />
-                
-                <div className="upload-divider" />
-                
-                <ImageUploader
-                  type="reference"
-                  maxCount={REFERENCE_IMAGE_LIMIT}
-                  images={referenceImages}
-                  onUpload={handleReferenceUpload}
-                  onRemove={(id) => removeImage(id, 'reference')}
-                  title={`基准图（最多 ${REFERENCE_IMAGE_LIMIT} 张）`}
-                />
-              </div>
-            </div>
-          </aside>
-
-          {/* 中间面板：提示词 + 生成 */}
-          <section className="panel-center">
-            <div className="panel-section">
-              <PromptPanel />
-            </div>
-            
-            <div className="panel-section">
-              <GeneratePanel />
-            </div>
-            
-            {/* 分割按钮 */}
-            {generatedImage && extractedEmojis.length === 0 && (
-              <div className="panel-section card split-panel">
-                <button
-                  onClick={handleSplitEmojis}
-                  disabled={isSplitting}
-                  className={`split-button ${isSplitting ? 'loading' : ''}`}
-                >
-                  {isSplitting ? (
-                    <>
-                      <span className="spinner" />
-                      正在分割...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                      </svg>
-                      分割提取表情
-                    </>
-                  )}
-                </button>
-                <p className="split-hint">点击按钮自动检测并分割表情包</p>
-              </div>
-            )}
-
-            {/* 手动上传切割面板 */}
-            <div className="panel-section">
-              <ManualSplitPanel />
-            </div>
+        <div className="two-column-grid">
+          {/* 左侧：工作面板 */}
+          <section className="work-column">
+            <WorkPanel />
           </section>
 
-          {/* 右侧面板：结果预览 + 编辑器 */}
-          <aside className="panel-right">
+          {/* 右侧：结果预览 + 编辑器 */}
+          <aside className="result-column">
             <div className="panel-section card">
               <EmojiGrid
                 emojis={extractedEmojis}
                 selectedId={selectedEmojiId}
                 onSelect={selectEmoji}
-                isLoading={isSplitting}
-                error={splitError}
-                onRetry={handleSplitEmojis}
+                onDelete={deleteEmoji}
+                isLoading={false}
+                error={null}
+                onRetry={() => {}}
               />
             </div>
 

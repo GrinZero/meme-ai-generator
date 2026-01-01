@@ -4,6 +4,10 @@
  */
 
 import type { BoundingBox, ExtractedEmoji } from '../types/image';
+import type { APIConfig } from '../types/api';
+import type { AISegmentationConfig, SegmentationResult } from '../types/segmentation';
+import { AISegmentationService, DEFAULT_AI_SEGMENTATION_CONFIG } from './aiSegmentationService';
+import { extractEmojisFromRegions } from './polygonCropper';
 
 // 生成唯一 ID
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -389,11 +393,11 @@ export function mergeNearbyBoundingBoxes(
  */
 export function detectEmojis(
   imageData: ImageData,
-  config: Partial<RegionDetectionConfig & { mergeDistance?: number; debug?: boolean }> = {}
+  config: Partial<RegionDetectionConfig & { mergeDistance?: number; mergeDistancePercent?: number; debug?: boolean }> = {}
 ): BoundingBox[] {
-  const { tolerance = DEFAULT_TOLERANCE, debug = false } = config;
-  // 调整合并距离：使用图片较短边的 2%（之前是 5%，太大了）
-  const defaultMergeDistance = Math.min(imageData.width, imageData.height) * 0.02;
+  const { tolerance = DEFAULT_TOLERANCE, debug = false, mergeDistancePercent = 2 } = config;
+  // 使用百分比计算合并距离，如果提供了 mergeDistance 则优先使用
+  const defaultMergeDistance = Math.min(imageData.width, imageData.height) * (mergeDistancePercent / 100);
   const { mergeDistance = defaultMergeDistance } = config;
   
   if (debug) {
@@ -1110,7 +1114,6 @@ export async function extractEmoji(
   
   return {
     id: generateId(),
-    imageData: finalImageData,
     blob,
     preview,
     boundingBox,
@@ -1141,6 +1144,8 @@ export async function extractAllEmojis(
     tolerance?: number;
     minArea?: number;
     minSize?: number;
+    /** 合并距离百分比 (0-10)，基于图片短边的百分比 */
+    mergeDistancePercent?: number;
     padding?: number;
     /** 调试模式：输出详细信息 */
     debug?: boolean;
@@ -1158,6 +1163,7 @@ export async function extractAllEmojis(
     tolerance = 30,
     minArea = 100,
     minSize = 10,
+    mergeDistancePercent = 2,
     padding = 0,
     debug = false,
     removeBackground = true,
@@ -1202,7 +1208,7 @@ export async function extractAllEmojis(
     }
     
     // 进行连通区域检测
-    const connectedBoxes = detectEmojis(imageData, { tolerance, minArea, minSize });
+    const connectedBoxes = detectEmojis(imageData, { tolerance, minArea, minSize, mergeDistancePercent });
     
     if (debug) {
       console.log(`[ImageSplitter] Connected components found: ${connectedBoxes.length} regions`);
@@ -1278,4 +1284,168 @@ export async function extractAllEmojis(
   console.log(`[ImageSplitter] ✓ Extracted ${emojis.length} emojis using ${detectionMethod}`);
   
   return emojis;
+}
+
+
+/**
+ * AI 分割提取选项
+ */
+export interface AIExtractionOptions {
+  /** API 配置 */
+  apiConfig: APIConfig;
+  /** AI 分割配置 */
+  aiConfig?: Partial<AISegmentationConfig>;
+  /** 裁剪边距 */
+  padding?: number;
+  /** 调试模式 */
+  debug?: boolean;
+  /** 回退选项（AI 失败时使用） */
+  fallbackOptions?: {
+    tolerance?: number;
+    minArea?: number;
+    minSize?: number;
+    removeBackground?: boolean;
+  };
+}
+
+/**
+ * AI 分割提取结果
+ */
+export interface AIExtractionResult {
+  /** 提取的表情列表 */
+  emojis: ExtractedEmoji[];
+  /** 使用的检测方法 */
+  method: 'ai' | 'fallback';
+  /** 错误信息（如果有） */
+  error?: string;
+  /** 是否发生了回退 */
+  didFallback: boolean;
+}
+
+/**
+ * 使用 AI 分割从图片中提取所有表情
+ * 支持回退机制：AI 分割失败时自动回退到传统连通区域检测
+ * 
+ * Requirements: 5.1, 5.2, 5.3
+ * 
+ * @param image 图片（HTMLImageElement 或 Blob）
+ * @param options AI 分割选项
+ * @returns 提取结果，包含表情列表和使用的方法
+ */
+export async function extractAllEmojisWithAI(
+  image: HTMLImageElement | Blob,
+  options: AIExtractionOptions
+): Promise<AIExtractionResult> {
+  const {
+    apiConfig,
+    aiConfig,
+    padding = 5,
+    debug = false,
+    fallbackOptions = {},
+  } = options;
+
+  const {
+    tolerance = 30,
+    minArea = 100,
+    minSize = 10,
+    removeBackground = true,
+  } = fallbackOptions;
+
+  // 获取图片 Blob
+  let imageBlob: Blob;
+  let imageData: ImageData;
+
+  if (image instanceof Blob) {
+    imageBlob = image;
+    const img = await loadImageFromBlob(image);
+    imageData = getImageDataFromImage(img);
+  } else {
+    imageData = getImageDataFromImage(image);
+    // 将 HTMLImageElement 转换为 Blob
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(image, 0, 0);
+    imageBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to convert image to Blob'));
+      }, 'image/png');
+    });
+  }
+
+  // 尝试 AI 分割
+  const mergedAiConfig: AISegmentationConfig = {
+    ...DEFAULT_AI_SEGMENTATION_CONFIG,
+    ...aiConfig,
+  };
+
+  if (debug) {
+    console.log('[extractAllEmojisWithAI] Starting AI segmentation...');
+    console.log('[extractAllEmojisWithAI] AI config:', mergedAiConfig);
+  }
+
+  const aiService = new AISegmentationService(apiConfig, mergedAiConfig);
+  let segmentationResult: SegmentationResult;
+
+  try {
+    segmentationResult = await aiService.segment(imageBlob);
+  } catch (error) {
+    // 捕获意外错误
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (debug) {
+      console.error('[extractAllEmojisWithAI] AI segmentation threw error:', errorMessage);
+    }
+    segmentationResult = {
+      success: false,
+      regions: [],
+      method: 'ai',
+      error: errorMessage,
+    };
+  }
+
+  // 检查 AI 分割是否成功
+  if (segmentationResult.success && segmentationResult.regions.length > 0) {
+    if (debug) {
+      console.log(`[extractAllEmojisWithAI] AI segmentation successful: ${segmentationResult.regions.length} regions`);
+    }
+
+    // 使用多边形裁剪提取表情
+    const emojis = await extractEmojisFromRegions(imageData, segmentationResult.regions, {
+      padding,
+    });
+
+    return {
+      emojis,
+      method: 'ai',
+      didFallback: false,
+    };
+  }
+
+  // AI 分割失败，回退到传统算法
+  const fallbackReason = segmentationResult.error || 'AI 分割未返回有效结果';
+  
+  if (debug) {
+    console.log(`[extractAllEmojisWithAI] AI segmentation failed: ${fallbackReason}`);
+    console.log('[extractAllEmojisWithAI] Falling back to connected-component detection...');
+  }
+
+  // 使用传统的连通区域检测
+  const emojis = await extractAllEmojis(image, {
+    mode: 'auto',
+    tolerance,
+    minArea,
+    minSize,
+    padding,
+    removeBackground,
+    debug,
+  });
+
+  return {
+    emojis,
+    method: 'fallback',
+    error: fallbackReason,
+    didFallback: true,
+  };
 }

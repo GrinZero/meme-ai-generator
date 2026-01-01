@@ -15,6 +15,8 @@ interface EmojiGridProps {
   selectedId: string | null;
   /** 选择表情回调 */
   onSelect: (id: string | null) => void;
+  /** 删除表情回调 */
+  onDelete?: (id: string) => void;
   /** 是否正在加载 */
   isLoading?: boolean;
   /** 错误信息 */
@@ -27,6 +29,7 @@ export function EmojiGrid({
   emojis,
   selectedId,
   onSelect,
+  onDelete,
   isLoading = false,
   error = null,
   onRetry,
@@ -36,6 +39,14 @@ export function EmojiGrid({
       onSelect(selectedId === id ? null : id);
     },
     [selectedId, onSelect]
+  );
+
+  const handleDelete = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      onDelete?.(id);
+    },
+    [onDelete]
   );
 
   // 批量下载状态
@@ -189,7 +200,7 @@ export function EmojiGrid({
             onClick={() => handleSelect(emoji.id)}
             style={{ animationDelay: `${index * 50}ms` }}
             className={`
-              relative aspect-square rounded-lg overflow-hidden stagger-item
+              relative aspect-square rounded-lg overflow-hidden stagger-item group
               bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZjBmMGYwIi8+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNmMGYwZjAiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')]
               transition-all duration-200
               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
@@ -218,6 +229,21 @@ export function EmojiGrid({
                   />
                 </svg>
               </div>
+            )}
+
+            {/* 删除按钮 */}
+            {onDelete && (
+              <button
+                onClick={(e) => handleDelete(e, emoji.id)}
+                className="absolute top-1 left-1 p-1 rounded-full bg-red-500 text-white 
+                           opacity-0 group-hover:opacity-100 hover:bg-red-600
+                           transition-opacity duration-150"
+                aria-label={`删除表情 ${index + 1}`}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             )}
 
             {/* 序号标签 */}

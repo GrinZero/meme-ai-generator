@@ -96,14 +96,42 @@
   gap: 1.5rem;
 }
 
-/* Desktop: 3-column layout */
+/* Two-column layout for new design */
+.two-column-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+/* Desktop: 2-column layout */
+@media (min-width: 1024px) {
+  .two-column-grid {
+    grid-template-columns: 1fr 400px;
+  }
+}
+
+/* Large desktop: wider result column */
+@media (min-width: 1400px) {
+  .two-column-grid {
+    grid-template-columns: 1fr 480px;
+  }
+}
+
+.work-column,
+.result-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Desktop: 3-column layout (legacy) */
 @media (min-width: 1024px) {
   .main-grid {
     grid-template-columns: 320px 1fr 360px;
   }
 }
 
-/* Large desktop: wider columns */
+/* Large desktop: wider columns (legacy) */
 @media (min-width: 1400px) {
   .main-grid {
     grid-template-columns: 360px 1fr 400px;

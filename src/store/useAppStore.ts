@@ -6,9 +6,26 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { APIConfig, APIStyle } from '../types/api';
 import type { UploadedImage, ExtractedEmoji, ImageType } from '../types/image';
+import type { AISegmentationConfig, ManualSplitConfig } from '../types/segmentation';
 import { STORAGE_KEY } from '../types/store';
 import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from '../services/imageValidation';
 import { fetchModels, getDefaultModels, type ModelInfo } from '../services/modelListService';
+
+// 默认 AI 分割配置
+const defaultAISegmentationConfig: AISegmentationConfig = {
+  enabled: false,
+  timeout: 30000,
+  maxImageSize: 4 * 1024 * 1024, // 4MB
+  usePolygon: true,
+};
+
+// 默认手动切割配置
+const defaultManualSplitConfig: ManualSplitConfig = {
+  tolerance: 30,
+  minArea: 100,
+  minSize: 10,
+  mergeDistancePercent: 2,
+};
 
 // 生成唯一 ID
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -39,6 +56,16 @@ interface AppState {
   setModelListError: (error: string | null) => void;
   fetchModelList: () => Promise<void>;
   
+  // AI Segmentation Config (Requirements: 5.3)
+  aiSegmentationConfig: AISegmentationConfig;
+  setAISegmentationConfig: (config: Partial<AISegmentationConfig>) => void;
+  toggleAISegmentation: () => void;
+  
+  // Manual Split Config
+  manualSplitConfig: ManualSplitConfig;
+  setManualSplitConfig: (config: Partial<ManualSplitConfig>) => void;
+  resetManualSplitConfig: () => void;
+  
   // Images
   materialImages: UploadedImage[];
   referenceImages: UploadedImage[];
@@ -66,10 +93,12 @@ interface AppState {
   setEditPrompt: (prompt: string) => void;
   setIsRegenerating: (isRegenerating: boolean) => void;
   replaceEmoji: (id: string, newEmoji: ExtractedEmoji) => void;
+  deleteEmoji: (id: string) => void;
+  appendEmojis: (emojis: ExtractedEmoji[]) => void;
 }
 
 // 需要持久化的状态字段
-type PersistedFields = Pick<AppState, 'apiConfig' | 'languagePreference'>;
+type PersistedFields = Pick<AppState, 'apiConfig' | 'languagePreference' | 'aiSegmentationConfig' | 'manualSplitConfig'>;
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -134,6 +163,29 @@ export const useAppStore = create<AppState>()(
           set({ isLoadingModels: false });
         }
       },
+
+      // AI Segmentation Config (Requirements: 5.3)
+      aiSegmentationConfig: defaultAISegmentationConfig,
+      setAISegmentationConfig: (config) =>
+        set((state) => ({
+          aiSegmentationConfig: { ...state.aiSegmentationConfig, ...config },
+        })),
+      toggleAISegmentation: () =>
+        set((state) => ({
+          aiSegmentationConfig: {
+            ...state.aiSegmentationConfig,
+            enabled: !state.aiSegmentationConfig.enabled,
+          },
+        })),
+
+      // Manual Split Config
+      manualSplitConfig: defaultManualSplitConfig,
+      setManualSplitConfig: (config) =>
+        set((state) => ({
+          manualSplitConfig: { ...state.manualSplitConfig, ...config },
+        })),
+      resetManualSplitConfig: () =>
+        set({ manualSplitConfig: defaultManualSplitConfig }),
 
       // Images
       materialImages: [],
@@ -210,6 +262,15 @@ export const useAppStore = create<AppState>()(
             emoji.id === id ? { ...newEmoji, id } : emoji
           ),
         })),
+      deleteEmoji: (id) =>
+        set((state) => ({
+          extractedEmojis: state.extractedEmojis.filter((emoji) => emoji.id !== id),
+          selectedEmojiId: state.selectedEmojiId === id ? null : state.selectedEmojiId,
+        })),
+      appendEmojis: (emojis) =>
+        set((state) => ({
+          extractedEmojis: [...state.extractedEmojis, ...emojis],
+        })),
     }),
     {
       name: STORAGE_KEY,
@@ -218,6 +279,8 @@ export const useAppStore = create<AppState>()(
       partialize: (state): PersistedFields => ({
         apiConfig: state.apiConfig,
         languagePreference: state.languagePreference,
+        aiSegmentationConfig: state.aiSegmentationConfig,
+        manualSplitConfig: state.manualSplitConfig,
       }),
     }
   )

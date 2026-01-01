@@ -98,7 +98,6 @@ async function processGeneratedImage(
   
   return {
     id: generateId(),
-    imageData: processedImageData,
     blob,
     preview,
     boundingBox: {

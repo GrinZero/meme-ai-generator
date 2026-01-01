@@ -14,6 +14,8 @@ interface ImageUploaderProps {
   onUpload: (files: File[]) => void;
   onRemove: (id: string) => void;
   title: string;
+  /** 紧凑模式，减少内边距和间距 */
+  compact?: boolean;
 }
 
 export function ImageUploader({
@@ -23,6 +25,7 @@ export function ImageUploader({
   onUpload,
   onRemove,
   title,
+  compact = false,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +117,9 @@ export function ImageUploader({
         onDrop={handleDrop}
         onClick={handleClick}
         className={`
-          relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer
+          relative border-2 border-dashed rounded-lg text-center cursor-pointer
           transition-colors duration-200
+          ${compact ? 'p-3' : 'p-4'}
           ${isDragging
             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
             : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
@@ -135,7 +139,7 @@ export function ImageUploader({
         
         <div className="space-y-1">
           <svg
-            className="mx-auto h-8 w-8 text-gray-400"
+            className={`mx-auto text-gray-400 ${compact ? 'h-6 w-6' : 'h-8 w-8'}`}
             stroke="currentColor"
             fill="none"
             viewBox="0 0 48 48"
@@ -147,14 +151,16 @@ export function ImageUploader({
               strokeLinejoin="round"
             />
           </svg>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className={`text-gray-600 dark:text-gray-400 ${compact ? 'text-xs' : 'text-sm'}`}>
             {remainingSlots > 0
-              ? '拖拽图片到此处，或点击选择'
+              ? (compact ? '拖拽或点击上传' : '拖拽图片到此处，或点击选择')
               : '已达到最大数量限制'}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            支持 PNG, JPG, JPEG, WebP
-          </p>
+          {!compact && (
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              支持 PNG, JPG, JPEG, WebP
+            </p>
+          )}
         </div>
       </div>
 

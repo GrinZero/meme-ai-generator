@@ -25,7 +25,7 @@ export interface BoundingBox {
 
 export interface ExtractedEmoji {
   id: string;
-  imageData: ImageData;
+  /** ImageData 已移除以提升性能，如需要可从 blob 重新生成 */
   blob: Blob;
   preview: string;
   boundingBox: BoundingBox;
