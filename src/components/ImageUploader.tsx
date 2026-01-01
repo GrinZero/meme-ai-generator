@@ -101,10 +101,10 @@ export function ImageUploader({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-cyan-300">
+        <h3 className="text-sm font-medium text-white/70">
           {title}
         </h3>
-        <span className="text-xs text-cyan-500/70">
+        <span className="text-xs text-white/40">
           {images.length} / {maxCount}
         </span>
       </div>
@@ -118,11 +118,11 @@ export function ImageUploader({
         onClick={handleClick}
         className={`
           relative border-2 border-dashed rounded-lg text-center cursor-pointer
-          transition-all duration-200
+          transition-colors duration-200
           ${compact ? 'p-3' : 'p-4'}
           ${isDragging
-            ? 'border-cyan-400 bg-cyan-500/10 shadow-[0_0_20px_rgba(0,255,255,0.2)]'
-            : 'border-cyan-500/30 hover:border-cyan-400/60 hover:bg-cyan-500/5'
+            ? 'border-[#646cff] bg-[#646cff]/10'
+            : 'border-white/[0.12] hover:border-white/[0.2] hover:bg-white/[0.02]'
           }
           ${remainingSlots <= 0 ? 'opacity-50 cursor-not-allowed' : ''}
         `}
@@ -139,7 +139,7 @@ export function ImageUploader({
         
         <div className="space-y-1">
           <svg
-            className={`mx-auto text-cyan-500/60 ${compact ? 'h-6 w-6' : 'h-8 w-8'}`}
+            className={`mx-auto text-white/30 ${compact ? 'h-6 w-6' : 'h-8 w-8'}`}
             stroke="currentColor"
             fill="none"
             viewBox="0 0 48 48"
@@ -151,13 +151,13 @@ export function ImageUploader({
               strokeLinejoin="round"
             />
           </svg>
-          <p className={`text-cyan-200 ${compact ? 'text-xs' : 'text-sm'}`}>
+          <p className={`text-white/60 ${compact ? 'text-xs' : 'text-sm'}`}>
             {remainingSlots > 0
               ? (compact ? '拖拽或点击上传' : '拖拽图片到此处，或点击选择')
               : '已达到最大数量限制'}
           </p>
           {!compact && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-white/30">
               支持 PNG, JPG, JPEG, WebP
             </p>
           )}
@@ -166,7 +166,7 @@ export function ImageUploader({
 
       {/* 错误提示 */}
       {error && (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="text-sm text-rose-400" role="alert">
           {error}
         </p>
       )}
@@ -177,7 +177,7 @@ export function ImageUploader({
           {images.map((image) => (
             <div
               key={image.id}
-              className="relative group aspect-square rounded-lg overflow-hidden bg-[#0F1629] border border-cyan-500/20"
+              className="relative group aspect-square rounded-lg overflow-hidden bg-[#1a1a1a] border border-white/[0.08]"
             >
               <img
                 src={image.preview}
@@ -192,9 +192,9 @@ export function ImageUploader({
                 }}
                 className="
                   absolute top-1 right-1 p-1 rounded-full
-                  bg-red-500/80 text-white opacity-0 group-hover:opacity-100
+                  bg-rose-500/80 text-white opacity-0 group-hover:opacity-100
                   transition-opacity duration-200
-                  hover:bg-red-500 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500
+                  hover:bg-rose-500 focus:opacity-100 focus:outline-none
                 "
                 aria-label="删除图片"
               >

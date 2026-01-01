@@ -106,16 +106,16 @@ export function SettingsDrawer() {
       <button
         onClick={() => setIsOpen(true)}
         className="fixed left-0 top-1/2 -translate-y-1/2 z-[99]
-                   bg-[#0A0E1A]/90 backdrop-blur-xl shadow-[0_0_20px_rgba(0,255,255,0.2)]
+                   bg-[#242424]/90 backdrop-blur-md
                    rounded-r-lg p-3 pr-4
-                   hover:bg-[#0F1629] hover:shadow-[0_0_30px_rgba(0,255,255,0.3)]
-                   transition-all duration-200
-                   border border-l-0 border-cyan-500/30
+                   hover:bg-[#2a2a2a]
+                   transition-colors duration-200
+                   border border-l-0 border-white/[0.08]
                    group"
         aria-label="打开设置"
       >
         <svg 
-          className="w-5 h-5 text-cyan-400 group-hover:rotate-45 transition-transform duration-300 drop-shadow-[0_0_5px_rgba(0,255,255,0.5)]" 
+          className="w-5 h-5 text-white/60 group-hover:text-white/90 group-hover:rotate-45 transition-all duration-300" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
@@ -129,7 +129,7 @@ export function SettingsDrawer() {
       {/* 遮罩层 */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -137,21 +137,21 @@ export function SettingsDrawer() {
       {/* 抽屉面板 */}
       <div className={`
         fixed left-0 top-0 h-full w-80 max-w-[85vw] z-[101]
-        bg-[#0A0E1A]/95 backdrop-blur-xl shadow-[0_0_40px_rgba(0,255,255,0.15)]
-        border-r border-cyan-500/30
+        bg-[#1a1a1a]/95 backdrop-blur-xl
+        border-r border-white/[0.08]
         transform transition-transform duration-300 ease-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         overflow-y-auto
       `}>
         {/* 头部 */}
-        <div className="sticky top-0 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-cyan-500/20 p-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-cyan-300 uppercase tracking-wider">设置</h2>
+        <div className="sticky top-0 bg-[#1a1a1a]/95 backdrop-blur-xl border-b border-white/[0.08] p-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white/90">设置</h2>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-2 rounded-md hover:bg-cyan-500/10 transition-colors"
+            className="p-2 rounded-md hover:bg-white/[0.05] transition-colors"
             aria-label="关闭设置"
           >
-            <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -161,13 +161,13 @@ export function SettingsDrawer() {
         <div className="p-4 space-y-6">
           {/* API 配置 */}
           <section>
-            <h3 className="text-xs font-medium text-cyan-500/70 uppercase tracking-wider mb-3">
+            <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">
               API 配置
             </h3>
             
             {/* API Key */}
             <div className="mb-3">
-              <label htmlFor="apiKey" className="block text-sm font-medium text-cyan-200 mb-1">
+              <label htmlFor="apiKey" className="block text-sm font-medium text-white/70 mb-1">
                 API Key
               </label>
               <input
@@ -176,12 +176,12 @@ export function SettingsDrawer() {
                 value={apiConfig.apiKey}
                 onChange={(e) => setAPIConfig({ apiKey: e.target.value })}
                 placeholder="输入你的 API Key"
-                className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500/50 bg-[#0F1629]/80 text-cyan-50 placeholder-slate-500 ${
-                  validationErrors.apiKey ? 'border-red-500/50' : 'border-cyan-500/30'
+                className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-[#646cff]/50 bg-white/[0.03] text-white/90 placeholder-white/30 ${
+                  validationErrors.apiKey ? 'border-rose-500/50' : 'border-white/[0.08]'
                 }`}
               />
               {validationErrors.apiKey && (
-                <p className="mt-1 text-xs text-red-400">{validationErrors.apiKey}</p>
+                <p className="mt-1 text-xs text-rose-400">{validationErrors.apiKey}</p>
               )}
             </div>
 

@@ -1,36 +1,36 @@
 @import "tailwindcss";
 
 /* ===================================
-   Sci-Fi HUD Theme Variables
+   Modern Dark Theme Variables (Vite Style)
    =================================== */
 
 :root {
-  /* Neon Colors */
-  --color-primary: #00FFFF;
-  --color-primary-hover: #00E5E5;
-  --color-success: #00FF88;
-  --color-success-hover: #00E57A;
-  --color-danger: #FF4757;
-  --color-danger-hover: #FF2D3F;
-  --color-warning: #FFB800;
+  /* Primary colors */
+  --color-primary: #646cff;
+  --color-primary-hover: #747bff;
+  --color-success: #10b981;
+  --color-success-hover: #34d399;
+  --color-danger: #f43f5e;
+  --color-danger-hover: #fb7185;
+  --color-warning: #f59e0b;
   
   /* Dark backgrounds */
-  --color-bg-primary: #0A0E1A;
-  --color-bg-secondary: #050810;
-  --color-bg-tertiary: #0F1629;
+  --color-bg-primary: #242424;
+  --color-bg-secondary: #1a1a1a;
+  --color-bg-tertiary: #2a2a2a;
   
-  /* Glowing text */
-  --color-text-primary: #E0F7FF;
-  --color-text-secondary: #7DD3FC;
-  --color-text-tertiary: #5EAED0;
-  --color-text-muted: #4B6A8A;
+  /* Text */
+  --color-text-primary: rgba(255, 255, 255, 0.87);
+  --color-text-secondary: rgba(255, 255, 255, 0.6);
+  --color-text-tertiary: rgba(255, 255, 255, 0.5);
+  --color-text-muted: rgba(255, 255, 255, 0.4);
   
-  /* Neon borders */
-  --color-border: rgba(0, 255, 255, 0.3);
-  --color-border-light: rgba(0, 128, 255, 0.2);
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-light: rgba(255, 255, 255, 0.12);
   
   /* Typography */
-  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   
@@ -45,10 +45,10 @@
   --transition-normal: 200ms ease;
   --transition-slow: 300ms ease;
   
-  /* Neon Shadows */
-  --shadow-sm: 0 0 10px rgba(0, 255, 255, 0.1);
-  --shadow-md: 0 0 20px rgba(0, 255, 255, 0.15);
-  --shadow-lg: 0 0 40px rgba(0, 255, 255, 0.2);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.3);
   
   /* Border Radius */
   --radius-sm: 4px;
@@ -79,9 +79,9 @@ body {
   background-color: var(--color-bg-secondary);
 }
 
-/* Neon selection */
+/* Selection */
 ::selection {
-  background-color: rgba(0, 255, 255, 0.3);
+  background-color: rgba(100, 108, 255, 0.3);
   color: #fff;
 }
 
@@ -104,24 +104,24 @@ body {
    Scrollbar Styles
    =================================== */
 
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 22, 41, 0.8);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(0, 255, 255, 0.4), rgba(0, 128, 255, 0.4));
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
-  border: 1px solid rgba(0, 255, 255, 0.2);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(0, 255, 255, 0.6), rgba(0, 128, 255, 0.6));
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* ===================================

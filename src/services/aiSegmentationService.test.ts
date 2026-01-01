@@ -313,8 +313,7 @@ describe('AI Segmentation Service Property Tests', () => {
       
       // Mock the segment method to simulate the error handling path
       // We test the error classification logic directly
-      const originalSegment = testService.segment.bind(testService);
-      testService.segment = async (_imageBlob: Blob) => {
+      testService.segment = async () => {
         try {
           throw new Error(errorMessage);
         } catch (error) {

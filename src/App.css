@@ -1,36 +1,35 @@
 /* ===================================
-   Sci-Fi HUD Theme - AI Emoji Generator
+   Modern Dark Theme - Vite Style
    =================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Sci-Fi Color Palette */
-  --hud-cyan: #00FFFF;
-  --hud-blue: #0080FF;
-  --hud-purple: #8B5CF6;
-  --hud-pink: #FF00FF;
-  --hud-green: #00FF88;
-  --hud-orange: #FF6B00;
+  /* Vite-inspired Color Palette */
+  --primary: #646cff;
+  --primary-light: #747bff;
+  --accent: #bd34fe;
+  --accent-light: #c75aff;
   
   /* Background layers */
-  --bg-deep: #050810;
-  --bg-primary: #0A0E1A;
-  --bg-secondary: #0F1629;
-  --bg-card: rgba(15, 22, 41, 0.8);
-  --bg-card-hover: rgba(20, 30, 55, 0.9);
+  --bg-deep: #1a1a1a;
+  --bg-primary: #242424;
+  --bg-secondary: #2a2a2a;
+  --bg-card: rgba(40, 40, 40, 0.6);
+  --bg-card-hover: rgba(50, 50, 50, 0.8);
   
   /* Text */
-  --text-primary: #E0F7FF;
-  --text-secondary: #7DD3FC;
-  --text-muted: #4B6A8A;
+  --text-primary: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.4);
   
-  /* Borders & Glow */
-  --border-glow: rgba(0, 255, 255, 0.3);
-  --border-subtle: rgba(0, 128, 255, 0.2);
-  --glow-cyan: 0 0 20px rgba(0, 255, 255, 0.4);
-  --glow-blue: 0 0 20px rgba(0, 128, 255, 0.4);
-  --glow-purple: 0 0 20px rgba(139, 92, 246, 0.4);
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #646cff 0%, #bd34fe 100%);
+  --gradient-glow: radial-gradient(ellipse at 50% 0%, rgba(100, 108, 255, 0.15) 0%, transparent 50%);
 }
 
 /* ===================================
@@ -38,13 +37,9 @@
    =================================== */
 
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-deep);
   color: var(--text-primary);
-}
-
-h1, h2, h3, h4, h5, h6, .font-display {
-  font-family: 'Space Grotesk', sans-serif;
 }
 
 /* ===================================
@@ -57,65 +52,36 @@ h1, h2, h3, h4, h5, h6, .font-display {
   flex-direction: column;
   background: var(--bg-deep);
   position: relative;
-  overflow-x: hidden;
 }
 
-/* Animated grid background */
+/* Subtle gradient background */
 .app-container::before {
   content: '';
   position: fixed;
   inset: 0;
   background: 
-    linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Gradient overlay */
-.app-container::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(0, 128, 255, 0.15) 0%, transparent 60%),
-              radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(100, 108, 255, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 50%, rgba(189, 52, 254, 0.08) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
 
 /* ===================================
-   Header - HUD Style
+   Header
    =================================== */
 
 .app-header {
-  background: linear-gradient(180deg, rgba(10, 14, 26, 0.95) 0%, rgba(10, 14, 26, 0.8) 100%);
-  border-bottom: 1px solid var(--border-glow);
+  background: rgba(26, 26, 26, 0.8);
+  border-bottom: 1px solid var(--border);
   padding: 1rem 1.5rem;
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 4px 30px rgba(0, 255, 255, 0.1);
-}
-
-/* Scanline effect on header */
-.app-header::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 255, 255, 0.02) 2px,
-    rgba(0, 255, 255, 0.02) 4px
-  );
-  pointer-events: none;
+  backdrop-filter: blur(12px);
 }
 
 .header-content {
-  max-width: 1600px;
+  max-width: 1400px;
   margin: 0 auto;
   position: relative;
   z-index: 1;
@@ -130,31 +96,23 @@ h1, h2, h3, h4, h5, h6, .font-display {
 .logo-icon {
   font-size: 2rem;
   line-height: 1;
-  filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.6));
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-  0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.6)); }
-  50% { filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.9)); }
 }
 
 .logo-text {
-  font-family: 'Space Grotesk', sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--hud-cyan);
+  color: var(--text-primary);
   margin: 0;
-  text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-  letter-spacing: 0.05em;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .header-subtitle {
   margin: 0.25rem 0 0 0;
   font-size: 0.875rem;
   color: var(--text-secondary);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 /* ===================================
@@ -164,7 +122,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
 .app-main {
   flex: 1;
   padding: 1.5rem;
-  max-width: 1600px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
@@ -181,13 +139,13 @@ h1, h2, h3, h4, h5, h6, .font-display {
 
 @media (min-width: 1024px) {
   .two-column-grid {
-    grid-template-columns: 1fr 420px;
+    grid-template-columns: 1fr 400px;
   }
 }
 
 @media (min-width: 1400px) {
   .two-column-grid {
-    grid-template-columns: 1fr 500px;
+    grid-template-columns: 1fr 480px;
   }
 }
 
@@ -199,38 +157,20 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 /* ===================================
-   HUD Card Style
+   Card Style
    =================================== */
 
 .card, .panel-section {
   background: var(--bg-card);
-  border: 1px solid var(--border-glow);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.5rem;
-  position: relative;
-  backdrop-filter: blur(10px);
-  box-shadow: 
-    0 0 30px rgba(0, 255, 255, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover, .panel-section:hover {
-  border-color: rgba(0, 255, 255, 0.5);
-  box-shadow: 
-    0 0 40px rgba(0, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-/* Corner accents */
-.card::before, .panel-section::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 10px;
-  right: 10px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--hud-cyan), transparent);
+  border-color: var(--border-hover);
 }
 
 /* ===================================
@@ -241,20 +181,16 @@ h1, h2, h3, h4, h5, h6, .font-display {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: 'Space Grotesk', sans-serif;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--hud-cyan);
+  color: var(--text-primary);
   margin: 0 0 1rem 0;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 .section-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--hud-blue);
-  filter: drop-shadow(0 0 5px var(--hud-blue));
+  color: var(--text-secondary);
 }
 
 .section-description {
@@ -264,7 +200,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 /* ===================================
-   Buttons - Neon Style
+   Buttons
    =================================== */
 
 .split-button {
@@ -274,23 +210,19 @@ h1, h2, h3, h4, h5, h6, .font-display {
   gap: 0.5rem;
   width: 100%;
   padding: 0.875rem 1.5rem;
-  font-family: 'Space Grotesk', sans-serif;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--bg-deep);
-  background: linear-gradient(135deg, var(--hud-cyan) 0%, var(--hud-blue) 100%);
+  color: white;
+  background: var(--gradient-primary);
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  box-shadow: var(--glow-cyan);
+  transition: all 0.2s ease;
 }
 
 .split-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 0 40px rgba(0, 255, 255, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(100, 108, 255, 0.3);
 }
 
 .split-button:active:not(:disabled) {
@@ -301,11 +233,6 @@ h1, h2, h3, h4, h5, h6, .font-display {
   background: var(--bg-secondary);
   color: var(--text-muted);
   cursor: not-allowed;
-  box-shadow: none;
-}
-
-.split-button.loading {
-  background: var(--bg-secondary);
 }
 
 .button-icon {
@@ -314,14 +241,14 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 /* ===================================
-   Spinner - Sci-Fi Style
+   Spinner
    =================================== */
 
 .spinner {
   width: 1.25rem;
   height: 1.25rem;
-  border: 2px solid rgba(0, 255, 255, 0.2);
-  border-top-color: var(--hud-cyan);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: white;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -337,7 +264,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
 @keyframes fadeSlideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -346,13 +273,13 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .panel-section {
-  animation: fadeSlideIn 0.4s ease-out;
+  animation: fadeSlideIn 0.3s ease-out;
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
@@ -361,13 +288,13 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .editor-panel {
-  animation: slideInRight 0.4s ease-out;
+  animation: slideInRight 0.3s ease-out;
 }
 
-/* Stagger animation for grid items */
+/* Stagger animation */
 .stagger-item {
   opacity: 0;
-  animation: fadeSlideIn 0.4s ease-out forwards;
+  animation: fadeSlideIn 0.3s ease-out forwards;
 }
 
 .stagger-item:nth-child(1) { animation-delay: 0ms; }
@@ -381,15 +308,15 @@ h1, h2, h3, h4, h5, h6, .font-display {
 .stagger-item:nth-child(9) { animation-delay: 400ms; }
 
 /* ===================================
-   Footer - HUD Style
+   Footer
    =================================== */
 
 .app-footer {
   padding: 1rem 1.5rem;
   text-align: center;
-  border-top: 1px solid var(--border-subtle);
-  background: rgba(10, 14, 26, 0.9);
-  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(8px);
   position: relative;
   z-index: 1;
 }
@@ -398,23 +325,21 @@ h1, h2, h3, h4, h5, h6, .font-display {
   margin: 0;
   font-size: 0.75rem;
   color: var(--text-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 /* ===================================
-   Checkered Background (transparency)
+   Checkered Background
    =================================== */
 
 .bg-checkered {
   background-image: 
-    linear-gradient(45deg, #1a1f35 25%, transparent 25%),
-    linear-gradient(-45deg, #1a1f35 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #1a1f35 75%),
-    linear-gradient(-45deg, transparent 75%, #1a1f35 75%);
+    linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
+    linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
+    linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-  background-color: #0f1629;
+  background-color: #1a1a1a;
 }
 
 /* ===================================
@@ -433,42 +358,18 @@ h1, h2, h3, h4, h5, h6, .font-display {
   border: 0;
 }
 
-/* Glow effects */
-.glow-cyan { box-shadow: var(--glow-cyan); }
-.glow-blue { box-shadow: var(--glow-blue); }
-.glow-purple { box-shadow: var(--glow-purple); }
-
-.text-glow-cyan {
-  color: var(--hud-cyan);
-  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-}
-
 /* Card hover effect */
 .card-hover {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 0 40px rgba(0, 255, 255, 0.15);
-}
-
-/* Progress bar - neon style */
-.progress-bar {
-  height: 4px;
-  background: linear-gradient(90deg, var(--hud-cyan), var(--hud-blue), var(--hud-purple));
-  border-radius: 2px;
-  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-}
-
-/* Focus states */
-.glow-focus:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--bg-deep), 0 0 0 4px var(--hud-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 /* ===================================
-   Responsive Adjustments
+   Responsive
    =================================== */
 
 @media (max-width: 767px) {
@@ -485,7 +386,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
   }
   
   .header-subtitle {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
   
   .app-main {
