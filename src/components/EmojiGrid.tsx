@@ -73,13 +73,13 @@ export function EmojiGrid({
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <h3 className="text-sm font-medium text-cyan-300 uppercase tracking-wider">
           提取的表情
         </h3>
-        <div className="flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="flex items-center justify-center p-8 bg-[#0F1629]/60 border border-cyan-500/20 rounded-lg">
           <div className="flex flex-col items-center space-y-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin"></div>
+            <p className="text-sm text-cyan-300/70">
               正在分割表情包...
             </p>
           </div>
@@ -92,12 +92,12 @@ export function EmojiGrid({
   if (error) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <h3 className="text-sm font-medium text-cyan-300 uppercase tracking-wider">
           提取的表情
         </h3>
-        <div className="flex flex-col items-center justify-center p-8 bg-red-50 dark:bg-red-900/20 rounded-lg">
+        <div className="flex flex-col items-center justify-center p-8 bg-red-500/10 border border-red-500/30 rounded-lg">
           <svg
-            className="h-8 w-8 text-red-500 mb-2"
+            className="h-8 w-8 text-red-400 mb-2"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -109,13 +109,13 @@ export function EmojiGrid({
               d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
             />
           </svg>
-          <p className="text-sm text-red-600 dark:text-red-400 text-center mb-3">
+          <p className="text-sm text-red-400 text-center mb-3">
             {error}
           </p>
           {onRetry && (
             <button
               onClick={onRetry}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-[#0A0E1A] transition-colors"
             >
               重试
             </button>
@@ -129,11 +129,11 @@ export function EmojiGrid({
   if (emojis.length === 0) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <h3 className="text-sm font-medium text-cyan-300 uppercase tracking-wider">
           提取的表情
         </h3>
-        <div className="flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex items-center justify-center p-8 bg-[#0F1629]/60 border border-cyan-500/20 rounded-lg">
+          <p className="text-sm text-slate-500">
             暂无提取的表情
           </p>
         </div>
@@ -144,24 +144,24 @@ export function EmojiGrid({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <h3 className="text-sm font-medium text-cyan-300 uppercase tracking-wider">
           提取的表情
         </h3>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-cyan-500/70">
           共 {emojis.length} 个
         </span>
       </div>
 
       {/* 下载选项 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-[#0F1629]/60 border border-cyan-500/20 rounded-lg">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={standardizeSize}
             onChange={(e) => setStandardizeSize(e.target.checked)}
-            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500 accent-cyan-500 bg-slate-800 border-cyan-500/30"
           />
-          <span className="text-xs text-gray-600 dark:text-gray-300">
+          <span className="text-xs text-cyan-200">
             标准化尺寸 ({DEFAULT_STANDARD_SIZE}×{DEFAULT_STANDARD_SIZE})
           </span>
         </label>
@@ -170,15 +170,15 @@ export function EmojiGrid({
         <button
           onClick={handleBatchDownload}
           disabled={isDownloading || emojis.length === 0}
-          className="flex items-center px-3 py-1.5 text-xs font-medium text-white
-                     bg-blue-500 hover:bg-blue-600 rounded-md
+          className="flex items-center px-3 py-1.5 text-xs font-medium text-slate-900
+                     bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 rounded-md
                      disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-colors duration-150"
+                     transition-all duration-150 shadow-[0_0_10px_rgba(0,255,255,0.3)]"
           title="下载全部表情"
         >
           {isDownloading ? (
             <>
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1.5"></div>
+              <div className="w-3 h-3 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin mr-1.5"></div>
               打包中...
             </>
           ) : (
@@ -200,13 +200,12 @@ export function EmojiGrid({
             onClick={() => handleSelect(emoji.id)}
             style={{ animationDelay: `${index * 50}ms` }}
             className={`
-              relative aspect-square rounded-lg overflow-hidden stagger-item group
-              bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZjBmMGYwIi8+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNmMGYwZjAiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')]
-              transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+              relative aspect-square rounded-lg overflow-hidden stagger-item group cursor-pointer
+              bg-[#0F1629] border transition-all duration-200
+              focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#0A0E1A]
               ${selectedId === emoji.id
-                ? 'ring-2 ring-blue-500 ring-offset-2 scale-105'
-                : 'hover:scale-105 hover:shadow-lg'
+                ? 'border-cyan-400 shadow-[0_0_20px_rgba(0,255,255,0.4)] scale-105'
+                : 'border-cyan-500/20 hover:border-cyan-400/60 hover:shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:scale-105'
               }
             `}
             aria-label={`选择表情 ${index + 1}`}
@@ -220,7 +219,7 @@ export function EmojiGrid({
             
             {/* 选中指示器 */}
             {selectedId === emoji.id && (
-              <div className="absolute top-1 right-1 p-1 rounded-full bg-blue-500 text-white">
+              <div className="absolute top-1 right-1 p-1 rounded-full bg-cyan-500 text-slate-900 shadow-[0_0_10px_rgba(0,255,255,0.5)]">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
@@ -235,8 +234,8 @@ export function EmojiGrid({
             {onDelete && (
               <button
                 onClick={(e) => handleDelete(e, emoji.id)}
-                className="absolute top-1 left-1 p-1 rounded-full bg-red-500 text-white 
-                           opacity-0 group-hover:opacity-100 hover:bg-red-600
+                className="absolute top-1 left-1 p-1 rounded-full bg-red-500/80 text-white 
+                           opacity-0 group-hover:opacity-100 hover:bg-red-500
                            transition-opacity duration-150"
                 aria-label={`删除表情 ${index + 1}`}
               >
@@ -247,7 +246,7 @@ export function EmojiGrid({
             )}
 
             {/* 序号标签 */}
-            <div className="absolute bottom-1 left-1 px-1.5 py-0.5 text-xs font-medium bg-black/50 text-white rounded">
+            <div className="absolute bottom-1 left-1 px-1.5 py-0.5 text-xs font-medium bg-slate-900/80 text-cyan-400 rounded border border-cyan-500/30">
               {index + 1}
             </div>
           </button>
@@ -255,7 +254,7 @@ export function EmojiGrid({
       </div>
 
       {/* 提示信息 */}
-      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+      <p className="text-xs text-slate-500 text-center">
         点击表情可选中进行编辑
       </p>
     </div>

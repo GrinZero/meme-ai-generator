@@ -15,7 +15,7 @@ import { ImageUploader } from './ImageUploader';
 
 // 示例提示词
 const EXAMPLE_PROMPTS = [
-  '这是我的小猫咪，我希望表情包是 Q 版萌系的风格',
+  '这是我的小猫咪，希望你认真读取它的形象特点，结合图片中的实际形象，产出 Q 版萌系的表情包',
   '请生成一组可爱的表情包，包含开心、难过、生气、惊讶等情绪',
   '帮我生成一组搞笑的表情包，带有夸张的表情和动作',
 ];
@@ -278,15 +278,15 @@ export function WorkPanel() {
   const handleReferenceUpload = (files: File[]) => files.forEach(addReferenceImage);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+    <div className="bg-[#0A0E1A]/80 backdrop-blur-xl rounded-xl border border-cyan-500/30 shadow-[0_0_30px_rgba(0,255,255,0.1)] overflow-hidden">
       {/* 模式切换标签 */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
+      <div className="flex border-b border-cyan-500/20">
         <button
           onClick={() => setMode('generate')}
-          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
+          className={`flex-1 py-3 px-4 text-sm font-medium transition-all relative ${
             mode === 'generate'
-              ? 'text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              ? 'text-cyan-400 bg-cyan-500/10'
+              : 'text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/5'
           }`}
         >
           <span className="flex items-center justify-center gap-2">
@@ -296,15 +296,15 @@ export function WorkPanel() {
             AI 生成
           </span>
           {mode === 'generate' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(0,255,255,0.5)]" />
           )}
         </button>
         <button
           onClick={() => setMode('split')}
-          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
+          className={`flex-1 py-3 px-4 text-sm font-medium transition-all relative ${
             mode === 'split'
-              ? 'text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              ? 'text-cyan-400 bg-cyan-500/10'
+              : 'text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/5'
           }`}
         >
           <span className="flex items-center justify-center gap-2">
@@ -314,7 +314,7 @@ export function WorkPanel() {
             上传切割
           </span>
           {mode === 'split' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(0,255,255,0.5)]" />
           )}
         </button>
       </div>
@@ -351,9 +351,10 @@ export function WorkPanel() {
                 value={userPrompt}
                 onChange={(e) => setUserPrompt(e.target.value)}
                 placeholder="描述你想要的表情包风格、内容、情绪..."
-                className="w-full h-24 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
-                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                           placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full h-24 px-3 py-2 text-sm border border-cyan-500/30 rounded-lg 
+                           bg-[#0F1629]/80 text-cyan-50
+                           placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 
+                           focus:border-cyan-400 resize-none transition-all"
               />
               {/* 示例提示词 */}
               <div className="flex flex-wrap gap-2 mt-2">
@@ -361,8 +362,8 @@ export function WorkPanel() {
                   <button
                     key={i}
                     onClick={() => setUserPrompt(example)}
-                    className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 
-                               rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors truncate max-w-[200px]"
+                    className="text-xs px-2 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 
+                               rounded hover:bg-cyan-500/20 hover:border-cyan-400/40 transition-all truncate max-w-[200px]"
                   >
                     {example}
                   </button>
@@ -374,12 +375,12 @@ export function WorkPanel() {
             {isGenerating ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-center py-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
-                  <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">正在生成...</span>
+                  <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
+                  <span className="ml-3 text-sm text-cyan-300">正在生成...</span>
                 </div>
                 <button
                   onClick={handleCancel}
-                  className="w-full py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                  className="w-full py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-all"
                 >
                   取消
                 </button>
@@ -390,11 +391,11 @@ export function WorkPanel() {
                 disabled={!generateStatus.can}
                 className={`w-full py-3 rounded-lg font-medium transition-all ${
                   generateStatus.can
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md hover:shadow-lg'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-900 shadow-[0_0_20px_rgba(0,255,255,0.3)] hover:shadow-[0_0_30px_rgba(0,255,255,0.5)]'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                 }`}
               >
-                {generateStatus.can ? '开始生成' : generateStatus.reason}
+                {generateStatus.can ? '⚡ 开始生成' : generateStatus.reason}
               </button>
             )}
 
@@ -402,20 +403,20 @@ export function WorkPanel() {
             {previewUrl && (
               <div className="mt-4">
                 {/* 切割操作区 - 放在图片上方 */}
-                <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3">
+                <div className="mb-3 p-3 bg-[#0F1629]/60 border border-cyan-500/20 rounded-lg space-y-3">
                   {/* 替换/插入选项 - 仅当已有表情时显示 */}
                   {extractedEmojis.length > 0 && (
                     <div className="flex items-center gap-4">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">分割后：</span>
+                      <span className="text-xs text-slate-400">分割后：</span>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="radio"
                           name="splitAction"
                           checked={splitAction === 'replace'}
                           onChange={() => setSplitAction('replace')}
-                          className="w-3.5 h-3.5 text-blue-600"
+                          className="w-3.5 h-3.5 text-cyan-500 accent-cyan-500"
                         />
-                        <span className="text-xs text-gray-700 dark:text-gray-300">替换</span>
+                        <span className="text-xs text-cyan-200">替换</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
@@ -423,9 +424,9 @@ export function WorkPanel() {
                           name="splitAction"
                           checked={splitAction === 'append'}
                           onChange={() => setSplitAction('append')}
-                          className="w-3.5 h-3.5 text-blue-600"
+                          className="w-3.5 h-3.5 text-cyan-500 accent-cyan-500"
                         />
-                        <span className="text-xs text-gray-700 dark:text-gray-300">追加</span>
+                        <span className="text-xs text-cyan-200">追加</span>
                       </label>
                     </div>
                   )}
@@ -435,13 +436,13 @@ export function WorkPanel() {
                     disabled={isSplitting}
                     className={`w-full py-2.5 rounded-lg font-medium transition-all ${
                       isSplitting
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white'
+                        ? 'bg-slate-700 cursor-not-allowed text-slate-400'
+                        : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-900 shadow-[0_0_20px_rgba(0,255,136,0.3)]'
                     }`}
                   >
                     {isSplitting ? (
                       <span className="flex items-center justify-center gap-2">
-                        <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        <span className="w-4 h-4 border-2 border-slate-500 border-t-cyan-400 rounded-full animate-spin" />
                         分割中...
                       </span>
                     ) : (
@@ -449,14 +450,14 @@ export function WorkPanel() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
                         </svg>
-                        {aiSegmentationConfig.enabled ? 'AI 智能分割' : '分割提取表情'}
+                        {aiSegmentationConfig.enabled ? '🤖 AI 智能分割' : '分割提取表情'}
                       </span>
                     )}
                   </button>
                 </div>
 
                 {/* 图片预览 */}
-                <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="relative rounded-lg overflow-hidden border border-cyan-500/30 shadow-[0_0_20px_rgba(0,255,255,0.1)]">
                   <img src={previewUrl} alt="生成结果" className="w-full h-auto" />
                 </div>
               </div>
@@ -473,10 +474,10 @@ export function WorkPanel() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={`
-                  border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+                  border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all
                   ${isDragging
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                    ? 'border-cyan-400 bg-cyan-500/10 shadow-[0_0_30px_rgba(0,255,255,0.2)]'
+                    : 'border-cyan-500/30 hover:border-cyan-400/60 hover:bg-cyan-500/5'
                   }
                 `}
               >
@@ -487,29 +488,29 @@ export function WorkPanel() {
                   onChange={(e) => e.target.files && handleFiles(e.target.files)}
                   className="hidden"
                 />
-                <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <svg className="mx-auto h-12 w-12 text-cyan-500/60" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                   <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">拖拽图片到此处，或点击选择</p>
-                <p className="text-xs text-gray-400 mt-1">支持 PNG, JPG, JPEG, WebP</p>
+                <p className="mt-2 text-sm text-cyan-200">拖拽图片到此处，或点击选择</p>
+                <p className="text-xs text-slate-500 mt-1">支持 PNG, JPG, JPEG, WebP</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* 切割操作区 - 放在图片上方 */}
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3">
+                <div className="p-3 bg-[#0F1629]/60 border border-cyan-500/20 rounded-lg space-y-3">
                   {/* 替换/插入选项 - 仅当已有表情时显示 */}
                   {extractedEmojis.length > 0 && (
                     <div className="flex items-center gap-4">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">分割后：</span>
+                      <span className="text-xs text-slate-400">分割后：</span>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="radio"
                           name="splitActionUpload"
                           checked={splitAction === 'replace'}
                           onChange={() => setSplitAction('replace')}
-                          className="w-3.5 h-3.5 text-blue-600"
+                          className="w-3.5 h-3.5 text-cyan-500 accent-cyan-500"
                         />
-                        <span className="text-xs text-gray-700 dark:text-gray-300">替换</span>
+                        <span className="text-xs text-cyan-200">替换</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
@@ -517,9 +518,9 @@ export function WorkPanel() {
                           name="splitActionUpload"
                           checked={splitAction === 'append'}
                           onChange={() => setSplitAction('append')}
-                          className="w-3.5 h-3.5 text-blue-600"
+                          className="w-3.5 h-3.5 text-cyan-500 accent-cyan-500"
                         />
-                        <span className="text-xs text-gray-700 dark:text-gray-300">追加</span>
+                        <span className="text-xs text-cyan-200">追加</span>
                       </label>
                     </div>
                   )}
@@ -529,13 +530,13 @@ export function WorkPanel() {
                     disabled={isSplitting}
                     className={`w-full py-2.5 rounded-lg font-medium transition-all ${
                       isSplitting
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white shadow-md'
+                        ? 'bg-slate-700 cursor-not-allowed text-slate-400'
+                        : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-900 shadow-[0_0_20px_rgba(0,255,136,0.3)]'
                     }`}
                   >
                     {isSplitting ? (
                       <span className="flex items-center justify-center gap-2">
-                        <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        <span className="w-4 h-4 border-2 border-slate-500 border-t-cyan-400 rounded-full animate-spin" />
                         分割中...
                       </span>
                     ) : (
@@ -550,11 +551,11 @@ export function WorkPanel() {
                 </div>
 
                 {/* 图片预览 */}
-                <div className="relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                <div className="relative rounded-lg overflow-hidden bg-[#0F1629] border border-cyan-500/30">
                   <img src={uploadPreviewUrl!} alt="待切割图片" className="w-full h-auto" />
                   <button
                     onClick={handleClearUpload}
-                    className="absolute top-2 right-2 p-2 rounded-full bg-red-500 text-white hover:bg-red-600"
+                    className="absolute top-2 right-2 p-2 rounded-full bg-red-500/80 text-white hover:bg-red-500 transition-all shadow-lg"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -564,7 +565,7 @@ export function WorkPanel() {
               </div>
             )}
             
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-center text-slate-500">
               上传已有的表情包图片进行切割提取
             </p>
           </div>
@@ -572,14 +573,14 @@ export function WorkPanel() {
 
         {/* 错误提示 */}
         {error && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
         {/* 分割方法提示 */}
         {splitMethod && (
-          <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400">
+          <p className="mt-2 text-xs text-center text-cyan-400/70">
             {splitMethod === 'ai' ? '✨ 使用 AI 智能分割' : '📐 使用传统算法分割'}
           </p>
         )}

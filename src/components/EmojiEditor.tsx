@@ -114,15 +114,15 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
   const displayEmoji = pendingEmoji || emoji;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div className="bg-[#0A0E1A]/80 backdrop-blur-xl rounded-xl border border-cyan-500/30 shadow-[0_0_30px_rgba(0,255,255,0.1)] p-6">
       {/* 头部 */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-lg font-semibold text-cyan-300 uppercase tracking-wider">
           {pendingEmoji ? '确认新表情' : '编辑表情'}
         </h2>
         <button
           onClick={onClose}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          className="p-1 text-slate-400 hover:text-cyan-300 transition-colors"
           aria-label="关闭编辑器"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,19 +137,19 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
           // 对比显示：原图 vs 新图
           <div className="flex gap-4 justify-center">
             <div className="text-center">
-              <p className="text-xs text-gray-500 mb-2">原表情</p>
-              <div className="w-24 h-24 rounded-lg overflow-hidden bg-checkered border border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-slate-500 mb-2">原表情</p>
+              <div className="w-24 h-24 rounded-lg overflow-hidden bg-checkered border border-cyan-500/20">
                 <img src={emoji.preview} alt="原表情" className="w-full h-full object-contain" />
               </div>
             </div>
-            <div className="flex items-center text-gray-400">
+            <div className="flex items-center text-cyan-500/50">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </div>
             <div className="text-center">
-              <p className="text-xs text-green-600 mb-2">新表情</p>
-              <div className="w-24 h-24 rounded-lg overflow-hidden bg-checkered border-2 border-green-500">
+              <p className="text-xs text-emerald-400 mb-2">新表情</p>
+              <div className="w-24 h-24 rounded-lg overflow-hidden bg-checkered border-2 border-emerald-500 shadow-[0_0_15px_rgba(0,255,136,0.3)]">
                 <img src={pendingEmoji.preview} alt="新表情" className="w-full h-full object-contain" />
               </div>
             </div>
@@ -157,7 +157,7 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
         ) : (
           <div
             className="relative mx-auto w-32 h-32 sm:w-48 sm:h-48 rounded-lg overflow-hidden
-              bg-checkered border border-gray-200 dark:border-gray-700"
+              bg-checkered border border-cyan-500/30"
           >
             <img src={displayEmoji.preview} alt="选中的表情" className="w-full h-full object-contain" />
           </div>
@@ -169,7 +169,7 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
         <div className="space-y-3">
           <button
             onClick={() => handleConfirm('replace')}
-            className="w-full px-4 py-2 rounded-md font-medium bg-green-500 hover:bg-green-600 text-white transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 rounded-md font-medium bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-900 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,255,136,0.3)]"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -178,7 +178,7 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
           </button>
           <button
             onClick={() => handleConfirm('append')}
-            className="w-full px-4 py-2 rounded-md font-medium bg-blue-500 hover:bg-blue-600 text-white transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 rounded-md font-medium bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-900 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,255,255,0.3)]"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -187,8 +187,8 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
           </button>
           <button
             onClick={handleCancelReplace}
-            className="w-full px-4 py-2 rounded-md font-medium border border-gray-300 dark:border-gray-600 
-                       text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="w-full px-4 py-2 rounded-md font-medium border border-cyan-500/30 
+                       text-cyan-300 hover:bg-cyan-500/10 transition-all"
           >
             取消
           </button>
@@ -197,7 +197,7 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
         <>
           {/* 编辑提示词输入 */}
           <div className="mb-4">
-            <label htmlFor="edit-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="edit-prompt" className="block text-sm font-medium text-cyan-300 mb-2">
               重新生成提示词
             </label>
             <textarea
@@ -207,22 +207,22 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
               placeholder="输入新的提示词来重新生成这个表情..."
               rows={3}
               disabled={isRegenerating}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
-                         rounded-md shadow-sm placeholder-gray-400
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                         dark:bg-gray-700 dark:text-white
-                         disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
-                         resize-none"
+              className="w-full px-3 py-2 border border-cyan-500/30 
+                         rounded-md shadow-sm placeholder-slate-500
+                         focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400
+                         bg-[#0F1629]/80 text-cyan-50
+                         disabled:bg-slate-800 disabled:cursor-not-allowed
+                         resize-none transition-all"
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs text-slate-500">
               提示：描述你想要的表情风格或内容变化
             </p>
           </div>
 
           {/* 错误提示 */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-md">
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
@@ -230,17 +230,17 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
           <div className="space-y-3">
             {isRegenerating ? (
               <div className="flex items-center justify-center py-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">正在重新生成...</span>
+                <div className="w-5 h-5 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin"></div>
+                <span className="ml-2 text-sm text-cyan-300">正在重新生成...</span>
               </div>
             ) : (
               <button
                 onClick={handleRegenerate}
                 disabled={!editPrompt.trim()}
-                className={`w-full px-4 py-2 rounded-md font-medium transition-colors duration-150
+                className={`w-full px-4 py-2 rounded-md font-medium transition-all duration-150
                   ${editPrompt.trim()
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-900 shadow-[0_0_15px_rgba(0,255,255,0.3)]'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                   }`}
               >
                 重新生成
@@ -248,15 +248,15 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
             )}
 
             {/* 下载选项 */}
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3">
+            <div className="p-3 bg-[#0F1629]/60 border border-cyan-500/20 rounded-lg space-y-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={standardizeSize}
                   onChange={(e) => setStandardizeSize(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500 accent-cyan-500 bg-slate-800 border-cyan-500/30"
                 />
-                <span className="text-xs text-gray-600 dark:text-gray-300">
+                <span className="text-xs text-cyan-200">
                   标准化尺寸 ({DEFAULT_STANDARD_SIZE}×{DEFAULT_STANDARD_SIZE})
                 </span>
               </label>
@@ -264,11 +264,11 @@ export function EmojiEditor({ emoji, emojiIndex, onClose }: EmojiEditorProps) {
               <button
                 onClick={handleDownload}
                 disabled={isRegenerating}
-                className="w-full px-4 py-2 text-blue-600 dark:text-blue-400 
-                           border border-blue-300 dark:border-blue-600 rounded-md
-                           hover:bg-blue-50 dark:hover:bg-blue-900/20
+                className="w-full px-4 py-2 text-cyan-400 
+                           border border-cyan-500/30 rounded-md
+                           hover:bg-cyan-500/10 hover:border-cyan-400/50
                            disabled:opacity-50 disabled:cursor-not-allowed
-                           transition-colors duration-150"
+                           transition-all duration-150"
               >
                 <span className="flex items-center justify-center">
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
