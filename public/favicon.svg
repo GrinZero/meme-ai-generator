@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE066"/>
+      <stop offset="100%" style="stop-color:#FFCC00"/>
+    </linearGradient>
+    <linearGradient id="sparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#A855F7"/>
+      <stop offset="100%" style="stop-color:#6366F1"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Main emoji face -->
+  <circle cx="64" cy="68" r="52" fill="url(#bgGrad)" stroke="#E6B800" stroke-width="3"/>
+  
+  <!-- Left eye -->
+  <ellipse cx="45" cy="62" rx="8" ry="10" fill="#4A3728"/>
+  <ellipse cx="47" cy="59" rx="3" ry="4" fill="#fff"/>
+  
+  <!-- Right eye -->
+  <ellipse cx="83" cy="62" rx="8" ry="10" fill="#4A3728"/>
+  <ellipse cx="85" cy="59" rx="3" ry="4" fill="#fff"/>
+  
+  <!-- Smile -->
+  <path d="M40 82 Q64 105 88 82" stroke="#4A3728" stroke-width="5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Blush -->
+  <ellipse cx="30" cy="78" rx="8" ry="5" fill="#FFB3B3" opacity="0.6"/>
+  <ellipse cx="98" cy="78" rx="8" ry="5" fill="#FFB3B3" opacity="0.6"/>
+  
+  <!-- AI sparkles -->
+  <g fill="url(#sparkleGrad)">
+    <!-- Top sparkle -->
+    <path d="M64 4 L66 12 L74 14 L66 16 L64 24 L62 16 L54 14 L62 12 Z"/>
+    <!-- Left sparkle -->
+    <path d="M12 40 L14 46 L20 48 L14 50 L12 56 L10 50 L4 48 L10 46 Z" transform="scale(0.8) translate(5,5)"/>
+    <!-- Right sparkle -->
+    <path d="M108 28 L110 34 L116 36 L110 38 L108 44 L106 38 L100 36 L106 34 Z"/>
+  </g>
+</svg>
