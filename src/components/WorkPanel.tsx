@@ -1,6 +1,10 @@
 /**
  * WorkPanel - 统一工作面板
  * 合并图片上传、提示词、生成和手动切割功能
+ * 
+ * Requirements:
+ * - 10.3: 手动框选提取完成后自动切换到表情网格视图
+ * - 10.4: 用户可以使用所有现有的表情编辑功能
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -12,6 +16,7 @@ import { extractAllEmojis, extractAllEmojisWithAI } from '../services/imageSplit
 import { validateUploadFiles } from '../services/imageValidation';
 import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from '../services/imageValidation';
 import { ImageUploader } from './ImageUploader';
+import { ManualSelectionPanel } from './ManualSelectionPanel';
 
 // 示例提示词
 const EXAMPLE_PROMPTS = [
@@ -21,6 +26,7 @@ const EXAMPLE_PROMPTS = [
 ];
 
 type WorkMode = 'generate' | 'split';
+type SplitMode = 'auto' | 'manual';
 type SplitAction = 'replace' | 'append';
 
 export function WorkPanel() {
@@ -46,6 +52,7 @@ export function WorkPanel() {
   } = useAppStore();
 
   const [mode, setMode] = useState<WorkMode>('generate');
+  const [splitMode, setSplitMode] = useState<SplitMode>('auto');
   const [splitAction, setSplitAction] = useState<SplitAction>('replace');
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -56,6 +63,7 @@ export function WorkPanel() {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showManualSelection, setShowManualSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 更新生成结果预览
@@ -463,9 +471,58 @@ export function WorkPanel() {
               </div>
             )}
           </div>
+        ) : showManualSelection && uploadedImage ? (
+          /* 手动框选模式 */
+          <div className="space-y-4">
+            <ManualSelectionPanel
+              imageFile={uploadedImage}
+              onExtractComplete={() => {
+                // 提取完成后关闭手动框选面板
+                setShowManualSelection(false);
+                handleClearUpload();
+              }}
+              onCancel={() => {
+                setShowManualSelection(false);
+              }}
+            />
+          </div>
         ) : (
           /* 上传切割模式 */
           <div className="space-y-4">
+            {/* 切割模式切换 */}
+            <div className="flex items-center gap-2 p-1 bg-white/[0.03] rounded-lg border border-white/[0.08]">
+              <button
+                onClick={() => setSplitMode('auto')}
+                className={`flex-1 py-2 px-3 text-xs font-medium rounded-md transition-all ${
+                  splitMode === 'auto'
+                    ? 'bg-[#646cff]/20 text-[#646cff] border border-[#646cff]/30'
+                    : 'text-white/50 hover:text-white/70 hover:bg-white/[0.05]'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  自动切割
+                </span>
+              </button>
+              <button
+                onClick={() => setSplitMode('manual')}
+                className={`flex-1 py-2 px-3 text-xs font-medium rounded-md transition-all ${
+                  splitMode === 'manual'
+                    ? 'bg-[#646cff]/20 text-[#646cff] border border-[#646cff]/30'
+                    : 'text-white/50 hover:text-white/70 hover:bg-white/[0.05]'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  手动框选
+                </span>
+              </button>
+            </div>
+
             {!uploadedImage ? (
               <div
                 onDragEnter={handleDragEnter}
@@ -494,7 +551,7 @@ export function WorkPanel() {
                 <p className="mt-2 text-sm text-white/60">拖拽图片到此处，或点击选择</p>
                 <p className="text-xs text-white/30 mt-1">支持 PNG, JPG, JPEG, WebP</p>
               </div>
-            ) : (
+            ) : splitMode === 'auto' ? (
               <div className="space-y-4">
                 {/* 切割操作区 - 放在图片上方 */}
                 <div className="p-3 bg-white/[0.03] border border-white/[0.08] rounded-lg space-y-3">
@@ -563,11 +620,45 @@ export function WorkPanel() {
                   </button>
                 </div>
               </div>
+            ) : (
+              /* 手动框选模式 - 显示进入按钮 */
+              <div className="space-y-4">
+                {/* 图片预览 */}
+                <div className="relative rounded-lg overflow-hidden bg-[#1a1a1a] border border-white/[0.08]">
+                  <img src={uploadPreviewUrl!} alt="待切割图片" className="w-full h-auto" />
+                  <button
+                    onClick={handleClearUpload}
+                    className="absolute top-2 right-2 p-2 rounded-full bg-rose-500/80 text-white hover:bg-rose-500 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* 进入手动框选按钮 */}
+                <button
+                  onClick={() => setShowManualSelection(true)}
+                  className="w-full py-2.5 rounded-lg font-medium transition-all bg-[#646cff] hover:bg-[#5558dd] text-white"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    进入手动框选
+                  </span>
+                </button>
+                <p className="text-xs text-center text-white/40">
+                  在图片上绘制矩形或多边形选区，精确提取表情包
+                </p>
+              </div>
             )}
             
-            <p className="text-xs text-center text-white/40">
-              上传已有的表情包图片进行切割提取
-            </p>
+            {!uploadedImage && (
+              <p className="text-xs text-center text-white/40">
+                上传已有的表情包图片进行切割提取
+              </p>
+            )}
           </div>
         )}
 

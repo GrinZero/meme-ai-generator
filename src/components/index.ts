@@ -11,6 +11,14 @@ export { EmojiGrid } from './EmojiGrid';
 export { EmojiEditor } from './EmojiEditor';
 export { SettingsDrawer } from './SettingsDrawer';
 export { WorkPanel } from './WorkPanel';
+export { SelectionCanvas } from './SelectionCanvas';
+export type { SelectionCanvasProps } from './SelectionCanvas';
+export { SelectionToolPanel } from './SelectionToolPanel';
+export type { SelectionToolPanelProps } from './SelectionToolPanel';
+export { SelectionList } from './SelectionList';
+export type { SelectionListProps } from './SelectionList';
+export { ManualSelectionPanel } from './ManualSelectionPanel';
+export type { ManualSelectionPanelProps } from './ManualSelectionPanel';
 export { 
   Skeleton, 
   SkeletonText, 

@@ -8,3 +8,4 @@ export * from './prompt';
 export * from './editor';
 export * from './store';
 export * from './segmentation';
+export * from './selection';

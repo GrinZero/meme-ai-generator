@@ -156,3 +156,48 @@ export {
   cropWithPolygon,
   extractEmojisFromRegions,
 } from './polygonCropper';
+
+// Selection Manager exports
+export {
+  generateSelectionId,
+  createRectangleSelection,
+  createPolygonSelection,
+  updateSelectionPosition,
+  updateSelectionSize,
+  movePolygonVertex,
+  insertPolygonVertex,
+  isPolygonClosed,
+  validatePolygon,
+  SelectionHistory,
+  createSelectionHistory,
+} from './selectionManager';
+
+// Region Extractor exports
+export {
+  extractRectangleRegion,
+  extractPolygonRegion,
+  removeRegionBackground,
+  extractFromSelection,
+  extractSelectionToEmoji,
+  extractAllSelections,
+} from './regionExtractor';
+
+export type {
+  RegionExtractionOptions,
+} from './regionExtractor';
+
+// Emoji Normalizer exports
+export {
+  normalizeImageData,
+  normalizeEmoji,
+  normalizeAllEmojis,
+  calculateScaledSize,
+  calculateCenterOffset,
+  isAlreadyNormalized,
+  getContentBounds,
+  validateNormalization,
+} from './emojiNormalizer';
+
+export type {
+  NormalizationOptions,
+} from './emojiNormalizer';
