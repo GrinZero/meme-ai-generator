@@ -11,9 +11,10 @@ import {
   cropImage,
   imageDataToBlob,
   imageDataToPreviewUrl,
-  detectBackgroundColor,
+  colorsAreSimilar,
   removeBackgroundFloodFill,
 } from './imageSplitter';
+import type { RGBAColor } from './imageSplitter';
 import { cropWithPolygon } from './polygonCropper';
 import type { SegmentationRegion } from '../types/segmentation';
 
@@ -55,8 +56,24 @@ export function extractRectangleRegion(
 ): ImageData {
   const { padding } = { ...DEFAULT_EXTRACTION_OPTIONS, ...options };
   
+  console.log('[extractRectangleRegion] boundingBox:', boundingBox);
+  console.log('[extractRectangleRegion] imageData size:', imageData.width, 'x', imageData.height);
+  console.log('[extractRectangleRegion] padding:', padding);
+  
   // 使用现有的 cropImage 函数裁剪矩形区域
-  return cropImage(imageData, boundingBox, padding);
+  const result = cropImage(imageData, boundingBox, padding);
+  console.log('[extractRectangleRegion] result size:', result.width, 'x', result.height);
+  
+  // 检查结果是否全透明
+  let opaquePixels = 0;
+  for (let i = 0; i < result.width * result.height; i++) {
+    if (result.data[i * 4 + 3] > 0) {
+      opaquePixels++;
+    }
+  }
+  console.log('[extractRectangleRegion] opaque pixels:', opaquePixels, '/', result.width * result.height);
+  
+  return result;
 }
 
 /**
@@ -105,11 +122,117 @@ export function removeRegionBackground(
   imageData: ImageData,
   tolerance: number = 30
 ): ImageData {
-  // 检测背景色
-  const backgroundColor = detectBackgroundColor(imageData, { tolerance });
+  // 使用增强的边缘采样来检测背景色
+  const backgroundColor = detectBackgroundColorFromEdges(imageData, tolerance);
+  
+  console.log('[removeRegionBackground] Detected background color:', backgroundColor);
+  console.log('[removeRegionBackground] Image size:', imageData.width, 'x', imageData.height);
   
   // 使用 flood-fill 从边缘移除背景
-  return removeBackgroundFloodFill(imageData, backgroundColor, tolerance);
+  // 对于手动框选的区域，关闭 fillEnclosed，因为用户可能框选了多个表情
+  // 关闭 featherEdge 以避免过度移除边缘像素
+  const result = removeBackgroundFloodFill(imageData, backgroundColor, tolerance, false, false);
+  
+  // 安全检查：如果移除了太多像素（超过 95%），说明可能出错了，返回原图
+  const totalPixels = result.width * result.height;
+  let transparentPixels = 0;
+  for (let i = 0; i < totalPixels; i++) {
+    if (result.data[i * 4 + 3] === 0) {
+      transparentPixels++;
+    }
+  }
+  
+  const transparentRatio = transparentPixels / totalPixels;
+  console.log('[removeRegionBackground] Transparent ratio:', (transparentRatio * 100).toFixed(1) + '%');
+  
+  if (transparentRatio > 0.95) {
+    console.warn('[removeRegionBackground] Too many pixels removed, returning original image');
+    return imageData;
+  }
+  
+  return result;
+}
+
+/**
+ * 从图片边缘采样检测背景色
+ * 比四角采样更准确，适用于用户手动框选的区域
+ * 忽略透明像素，只采样不透明的像素
+ */
+function detectBackgroundColorFromEdges(
+  imageData: ImageData,
+  tolerance: number
+): RGBAColor {
+  const { width, height, data } = imageData;
+  
+  // 从四条边缘采样
+  const sampledColors: RGBAColor[] = [];
+  const step = Math.max(1, Math.floor(Math.min(width, height) / 10));
+  
+  // 上边缘
+  for (let x = 0; x < width; x += step) {
+    const color = getPixelColorFromData(data, width, x, 0);
+    if (color.a >= 128) sampledColors.push(color);
+  }
+  // 下边缘
+  for (let x = 0; x < width; x += step) {
+    const color = getPixelColorFromData(data, width, x, height - 1);
+    if (color.a >= 128) sampledColors.push(color);
+  }
+  // 左边缘
+  for (let y = 0; y < height; y += step) {
+    const color = getPixelColorFromData(data, width, 0, y);
+    if (color.a >= 128) sampledColors.push(color);
+  }
+  // 右边缘
+  for (let y = 0; y < height; y += step) {
+    const color = getPixelColorFromData(data, width, width - 1, y);
+    if (color.a >= 128) sampledColors.push(color);
+  }
+  
+  // 如果边缘全是透明的，返回白色作为默认背景
+  if (sampledColors.length === 0) {
+    console.log('[detectBackgroundColorFromEdges] All edge pixels are transparent, using white as default');
+    return { r: 255, g: 255, b: 255, a: 255 };
+  }
+  
+  // 统计相似颜色的出现次数
+  const colorGroups: { color: RGBAColor; count: number }[] = [];
+  
+  for (const color of sampledColors) {
+    let foundGroup = false;
+    for (const group of colorGroups) {
+      if (colorsAreSimilar(color, group.color, tolerance)) {
+        group.count++;
+        foundGroup = true;
+        break;
+      }
+    }
+    if (!foundGroup) {
+      colorGroups.push({ color, count: 1 });
+    }
+  }
+  
+  // 返回出现次数最多的颜色
+  colorGroups.sort((a, b) => b.count - a.count);
+  return colorGroups[0]?.color ?? { r: 255, g: 255, b: 255, a: 255 };
+}
+
+/**
+ * 从 ImageData 的 data 数组获取像素颜色
+ */
+function getPixelColorFromData(
+  data: Uint8ClampedArray,
+  width: number,
+  x: number,
+  y: number
+): RGBAColor {
+  const index = (y * width + x) * 4;
+  return {
+    r: data[index],
+    g: data[index + 1],
+    b: data[index + 2],
+    a: data[index + 3],
+  };
 }
 
 /**

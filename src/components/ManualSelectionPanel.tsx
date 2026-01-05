@@ -64,16 +64,19 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
  */
 function getImageData(image: HTMLImageElement): ImageData {
   const canvas = document.createElement('canvas');
-  canvas.width = image.width;
-  canvas.height = image.height;
+  // 使用 naturalWidth/naturalHeight 获取图片原始尺寸
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  canvas.width = width;
+  canvas.height = height;
   
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     throw new Error('Failed to get canvas context');
   }
   
-  ctx.drawImage(image, 0, 0);
-  return ctx.getImageData(0, 0, image.width, image.height);
+  ctx.drawImage(image, 0, 0, width, height);
+  return ctx.getImageData(0, 0, width, height);
 }
 
 /**
@@ -97,6 +100,9 @@ export function ManualSelectionPanel({
     successMessage: null,
     errorMessage: null,
   });
+  
+  // 移除背景选项（默认开启）
+  const [removeBackground, setRemoveBackground] = useState(true);
   
   // 图片 URL 引用（用于清理）
   const imageUrlRef = useRef<string | null>(null);
@@ -252,9 +258,10 @@ export function ManualSelectionPanel({
       
       try {
         // 提取选区
+        // 使用较低的容差以避免误删内容
         const extractedData = extractFromSelection(imageData, selection, {
-          removeBackground: true,
-          backgroundTolerance: 30,
+          removeBackground: removeBackground,
+          backgroundTolerance: 20,
         });
         
         // 标准化为 240x240
@@ -305,7 +312,7 @@ export function ManualSelectionPanel({
     if (extractedEmojis.length > 0) {
       onExtractComplete?.(extractedEmojis);
     }
-  }, [imageData, selections, appendEmojis, onExtractComplete]);
+  }, [imageData, selections, removeBackground, appendEmojis, onExtractComplete]);
 
   // 渲染加载状态
   if (isLoading) {
@@ -367,11 +374,13 @@ export function ManualSelectionPanel({
           isExtracting={extractionState.isExtracting}
           canUndo={canUndo()}
           canRedo={canRedo()}
+          removeBackground={removeBackground}
           onModeChange={setMode}
           onExtract={handleExtract}
           onClearAll={clearAll}
           onUndo={undo}
           onRedo={redo}
+          onRemoveBackgroundChange={setRemoveBackground}
           extractionProgress={extractionState.progress}
           successMessage={extractionState.successMessage}
           errorMessage={extractionState.errorMessage}

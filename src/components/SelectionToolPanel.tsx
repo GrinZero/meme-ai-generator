@@ -29,6 +29,8 @@ export interface SelectionToolPanelProps {
   canUndo: boolean;
   /** 是否可以重做 */
   canRedo?: boolean;
+  /** 是否移除背景 */
+  removeBackground?: boolean;
   /** 模式变更回调 */
   onModeChange: (mode: SelectionMode) => void;
   /** 提取回调 */
@@ -39,6 +41,8 @@ export interface SelectionToolPanelProps {
   onUndo: () => void;
   /** 重做回调 */
   onRedo?: () => void;
+  /** 移除背景变更回调 */
+  onRemoveBackgroundChange?: (value: boolean) => void;
   /** 提取进度 (0-100) */
   extractionProgress?: number;
   /** 成功消息 */
@@ -61,11 +65,13 @@ export function SelectionToolPanel({
   isExtracting,
   canUndo,
   canRedo = false,
+  removeBackground = true,
   onModeChange,
   onExtract,
   onClearAll,
   onUndo,
   onRedo,
+  onRemoveBackgroundChange,
   extractionProgress,
   successMessage,
   errorMessage,
@@ -134,6 +140,31 @@ export function SelectionToolPanel({
           />
         </div>
       </div>
+
+      {/* 移除背景选项 */}
+      {onRemoveBackgroundChange && (
+        <div className="flex items-center justify-between">
+          <label className="text-sm text-gray-700 dark:text-gray-300">
+            自动移除背景
+          </label>
+          <button
+            onClick={() => onRemoveBackgroundChange(!removeBackground)}
+            disabled={isExtracting}
+            className={`
+              relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+              ${isExtracting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+              ${removeBackground ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}
+            `}
+          >
+            <span
+              className={`
+                inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                ${removeBackground ? 'translate-x-6' : 'translate-x-1'}
+              `}
+            />
+          </button>
+        </div>
+      )}
 
       {/* 操作按钮 */}
       <div className="space-y-2">

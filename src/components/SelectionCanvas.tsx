@@ -378,7 +378,9 @@ export function SelectionCanvas({
 
   // 处理缩放
   const handleWheel = useCallback((e: React.WheelEvent) => {
+    // 阻止默认行为和事件冒泡，防止页面滚动
     e.preventDefault();
+    e.stopPropagation();
     
     const canvasPoint = getCanvasPoint(e);
     const imagePoint = getImagePoint(canvasPoint);

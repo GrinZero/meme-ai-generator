@@ -477,9 +477,8 @@ export function WorkPanel() {
             <ManualSelectionPanel
               imageFile={uploadedImage}
               onExtractComplete={() => {
-                // 提取完成后关闭手动框选面板
-                setShowManualSelection(false);
-                handleClearUpload();
+                // 提取完成后不关闭面板，允许用户继续提取
+                // 用户可以通过取消按钮手动关闭
               }}
               onCancel={() => {
                 setShowManualSelection(false);

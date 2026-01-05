@@ -706,13 +706,27 @@ export function cropImage(
   boundingBox: BoundingBox,
   padding: number = 5
 ): ImageData {
-  const { x, y, width, height } = boundingBox;
+  // 对坐标取整，确保像素索引正确
+  const x = Math.round(boundingBox.x);
+  const y = Math.round(boundingBox.y);
+  const width = Math.round(boundingBox.width);
+  const height = Math.round(boundingBox.height);
   
   // 添加 padding，但不超出图片边界
   const cropX = Math.max(0, x - padding);
   const cropY = Math.max(0, y - padding);
   const cropWidth = Math.min(imageData.width - cropX, width + padding * 2);
   const cropHeight = Math.min(imageData.height - cropY, height + padding * 2);
+  
+  console.log('[cropImage] Input imageData:', imageData.width, 'x', imageData.height, 'data length:', imageData.data.length);
+  console.log('[cropImage] Crop area:', { cropX, cropY, cropWidth, cropHeight });
+  
+  // 检查源图片是否有数据
+  let srcOpaqueCount = 0;
+  for (let i = 0; i < Math.min(1000, imageData.width * imageData.height); i++) {
+    if (imageData.data[i * 4 + 3] > 0) srcOpaqueCount++;
+  }
+  console.log('[cropImage] Source image sample opaque pixels (first 1000):', srcOpaqueCount);
   
   // 使用 canvas 创建真正的 ImageData 实例
   const canvas = document.createElement('canvas');
@@ -871,10 +885,13 @@ export function removeBackgroundFloodFill(
     };
   };
   
-  // 检查像素是否为背景色
+  // 检查像素是否为背景色（忽略已经透明的像素）
   const isBackgroundPixel = (x: number, y: number): boolean => {
     if (x < 0 || x >= width || y < 0 || y >= height) return false;
-    return colorsAreSimilar(getPixelColorAt(x, y), backgroundColor, tolerance);
+    const color = getPixelColorAt(x, y);
+    // 已经透明的像素不算背景，不参与扩散
+    if (color.a < 128) return false;
+    return colorsAreSimilar(color, backgroundColor, tolerance);
   };
   
   // 4-连通方向
