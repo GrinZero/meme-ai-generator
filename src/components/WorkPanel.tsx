@@ -17,6 +17,7 @@ import { validateUploadFiles } from '../services/imageValidation';
 import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from '../services/imageValidation';
 import { ImageUploader } from './ImageUploader';
 import { ManualSelectionPanel } from './ManualSelectionPanel';
+import { WeChatStandardizationPanel } from './WeChatStandardizationPanel';
 
 // 示例提示词
 const EXAMPLE_PROMPTS = [
@@ -25,7 +26,7 @@ const EXAMPLE_PROMPTS = [
   '帮我生成一组搞笑的表情包，带有夸张的表情和动作',
 ];
 
-type WorkMode = 'generate' | 'split';
+type WorkMode = 'generate' | 'split' | 'standardize';
 type SplitMode = 'auto' | 'manual';
 type SplitAction = 'replace' | 'append';
 
@@ -325,6 +326,24 @@ export function WorkPanel() {
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#646cff] to-[#bd34fe]" />
           )}
         </button>
+        <button
+          onClick={() => setMode('standardize')}
+          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
+            mode === 'standardize'
+              ? 'text-white'
+              : 'text-white/50 hover:text-white/70'
+          }`}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            微信标准化
+          </span>
+          {mode === 'standardize' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#07c160] to-[#06ae56]" />
+          )}
+        </button>
       </div>
 
       <div className="p-4 sm:p-6">
@@ -471,6 +490,9 @@ export function WorkPanel() {
               </div>
             )}
           </div>
+        ) : mode === 'standardize' ? (
+          /* 微信表情标准化模式 */
+          <WeChatStandardizationPanel />
         ) : showManualSelection && uploadedImage ? (
           /* 手动框选模式 */
           <div className="space-y-4">
@@ -661,15 +683,15 @@ export function WorkPanel() {
           </div>
         )}
 
-        {/* 错误提示 */}
-        {error && (
+        {/* 错误提示 - 仅在非标准化模式下显示 */}
+        {mode !== 'standardize' && error && (
           <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg">
             <p className="text-sm text-rose-400">{error}</p>
           </div>
         )}
 
-        {/* 分割方法提示 */}
-        {splitMethod && (
+        {/* 分割方法提示 - 仅在非标准化模式下显示 */}
+        {mode !== 'standardize' && splitMethod && (
           <p className="mt-2 text-xs text-center text-white/40">
             {splitMethod === 'ai' ? '✨ 使用 AI 智能分割' : '📐 使用传统算法分割'}
           </p>

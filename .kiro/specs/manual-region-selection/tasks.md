@@ -174,7 +174,7 @@
     - 在 `src/services/index.ts` 中导出新服务
     - _Requirements: 10.4_
 
-- [-] 12. Final Checkpoint - 确保所有测试通过
+- [x] 12. Final Checkpoint - 确保所有测试通过
   - 运行完整测试套件
   - 验证端到端流程
   - 如有问题请询问用户

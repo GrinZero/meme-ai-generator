@@ -201,3 +201,80 @@ export {
 export type {
   NormalizationOptions,
 } from './emojiNormalizer';
+
+// WeChat Standardization Constants exports
+export {
+  WECHAT_SPECS,
+  SUPPORTED_IMAGE_FORMATS,
+  UPLOAD_LIMITS,
+  DEFAULT_PROMPTS,
+  COMPRESSION_CONFIG,
+  FILE_NAMING,
+  isValidImageFormat as isValidWeChatImageFormat,
+  isValidFileSize,
+  getSpecByType,
+} from './wechatConstants';
+
+// WeChat File Service exports
+export {
+  validateImageFormat as validateWeChatImageFormat,
+  isValidImageMimeType,
+  generateStandardFileName,
+  getImageTypeSpec,
+  createStandardizationZip,
+  getZipFileName,
+  triggerFileDownload,
+  downloadProcessedImage,
+  downloadStandardizationZip,
+  getZipFileList as getWeChatZipFileList,
+  validateZipContents,
+} from './wechatFileService';
+
+export type {
+  FileValidationResult,
+  ZipContentItem,
+} from './wechatFileService';
+
+// WeChat Image Processor exports
+export {
+  resizeImage,
+  compressImage,
+  processToBanner,
+  processToCover,
+  processToIcon,
+  compressToBannerLimit,
+  compressToCoverLimit,
+  compressToIconLimit,
+  getImageDimensions,
+  WeChatImageProcessor,
+} from './wechatImageProcessor';
+
+// WeChat Background Remover exports
+export {
+  removeBackground as removeWeChatBackground,
+  removeBackgroundForCover,
+  removeBackgroundForIcon,
+  hasTransparentPixels,
+  createBackgroundRemovalError,
+  WeChatBackgroundRemover,
+} from './wechatBackgroundRemover';
+
+export type {
+  BackgroundRemovalOptions,
+  BackgroundRemovalResult,
+} from './wechatBackgroundRemover';
+
+// WeChat Standardization Service exports
+export {
+  generateBanner,
+  generateCover,
+  generateIcon,
+  generateAll,
+  cancelGeneration as cancelWeChatGeneration,
+  validateProcessedImage,
+  WeChatStandardizationService,
+} from './wechatStandardizationService';
+
+export type {
+  ProgressCallback,
+} from './wechatStandardizationService';
