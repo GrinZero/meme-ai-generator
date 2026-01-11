@@ -140,6 +140,7 @@ export function WeChatStandardizationResultPanel() {
       setReprocessResult(newImage);
       setStatus({ stage: 'completed' });
     } catch (error) {
+      console.error('Regenerate error:', error);
       setStatus({
         stage: 'error',
         message: error instanceof Error ? error.message : `重新生成失败`,
@@ -205,6 +206,7 @@ export function WeChatStandardizationResultPanel() {
       // setReprocessResult(newImage);
       // setStatus({ stage: 'completed' });
     } catch (error) {
+      console.error('Image processing error:', error);
       setStatus({
         stage: 'error',
         message: error instanceof Error ? error.message : `图片处理失败`,

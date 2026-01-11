@@ -187,6 +187,7 @@ export async function generateWithGemini(
     throw new AIError('INVALID_RESPONSE', 'AI 未返回图片');
     
   } catch (error) {
+    console.error('[AI Service] Gemini Error:', error);
     if (error instanceof AIError) {
       return { success: false, error: getErrorMessage(error.type) };
     }
@@ -317,6 +318,7 @@ export async function generateWithOpenAIImages(
     throw new AIError('INVALID_RESPONSE', 'AI 未返回有效的图片数据');
     
   } catch (error) {
+    console.error('[AI Service] OpenAI Images Error:', error);
     if (error instanceof AIError) {
       return { success: false, error: getErrorMessage(error.type) };
     }
@@ -461,6 +463,7 @@ export async function generateWithOpenAIChat(
     throw new AIError('INVALID_RESPONSE', 'AI 未返回图片');
     
   } catch (error) {
+    console.error('[AI Service] OpenAI Chat Error:', error);
     if (error instanceof AIError) {
       return { success: false, error: getErrorMessage(error.type) };
     }

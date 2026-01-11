@@ -111,6 +111,9 @@ export function inferErrorType(error: unknown): AIErrorType {
  * 确保返回的消息是非空的、用户友好的（不包含原始错误码或堆栈跟踪）
  */
 export function getUserFriendlyMessage(error: unknown): string {
+  // 打印原始错误以便调试
+  console.error('[ErrorHandler] Catch error:', error);
+
   // 如果是字符串，检查是否已经是用户友好的消息
   if (typeof error === 'string') {
     // 检查是否是已知的用户友好消息
