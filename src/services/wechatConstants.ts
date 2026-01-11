@@ -41,6 +41,28 @@ export const WECHAT_SPECS = {
     displayName: '聊天页图标',
     fileName: 'icon_50x50',
   },
+  /** P4 赞赏引导图 */
+  APPRECIATION_GUIDE: {
+    width: 750,
+    height: 560,
+    maxSizeKB: 500,
+    formats: ['png', 'jpeg', 'gif'] as const,
+    requiresTransparency: false,
+    name: 'appreciationGuide',
+    displayName: '赞赏引导图',
+    fileName: 'appreciation_guide_750x560',
+  },
+  /** P5 赞赏致谢图 */
+  APPRECIATION_THANKS: {
+    width: 750,
+    height: 750,
+    maxSizeKB: 500,
+    formats: ['png', 'jpeg', 'gif'] as const,
+    requiresTransparency: false,
+    name: 'appreciationThanks',
+    displayName: '赞赏致谢图',
+    fileName: 'appreciation_thanks_750x750',
+  },
 } as const;
 
 /**
@@ -76,31 +98,58 @@ export const UPLOAD_LIMITS = {
 export const DEFAULT_PROMPTS: StandardizationPrompts = {
   p1: `基于提供的表情包素材，创作一张微信表情详情页横幅图。
 要求：
-- 横幅构图，画面丰富有故事性
+- 横幅构图（750×400），画面生动有趣、富有故事性
+- 展现角色之间的互动或有趣的场景
+- 可以使用动态姿势、夸张表情、有趣的情境
 - 色调活泼明朗，与微信底色有较大区分
-- 避免使用白色背景
+- 避免使用白色背景和纯色背景
 - 图中避免出现任何文字信息
 - 元素不能因拉伸或压扁导致变形
-- 内容须与表情相关`,
+- 鼓励创意构图，让画面更加吸引眼球`,
 
   p2: `基于提供的表情包素材，创作一张微信表情封面图。
 要求：
-- 选取最具辨识度的形象
-- 建议使用表情形象正面的半身像或全身像
+- 【重要】只生成单个角色的形象，绝对不要生成多个表情的拼接图或九宫格
+- 【重要】不要生成表情包合集、网格排列或多图拼接
+- 选取最具辨识度的单一角色形象
+- 使用表情形象正面的半身像或全身像
 - 避免只使用形象头部图片
 - 画面尽量简洁，避免加入装饰元素
 - 除纯文字类型表情外，避免出现文字
-- 形象不应有白色描边，避免出现锯齿`,
+- 形象不应有白色描边，避免出现锯齿
+- 背景需要透明或纯色便于后续处理`,
 
   p3: `基于提供的表情包素材，创作一张微信聊天页图标。
 要求：
-- 选最具辨识度和清晰的图片
+- 【重要】只生成单个角色的头部正面图，绝对不要生成多个表情的拼接图或九宫格
+- 【重要】不要生成表情包合集、网格排列或多图拼接
+- 选最具辨识度和清晰的单一角色头部
 - 画面尽量简洁，避免加入装饰元素
-- 建议使用仅含表情角色头部正面图像
-- 不应出现多个表情拼接
+- 使用仅含表情角色头部正面图像
 - 形象不应有白色描边，避免出现锯齿
 - 不要出现正方形边框
-- 每张图片不应有过多留白`,
+- 每张图片不应有过多留白
+- 背景需要透明或纯色便于后续处理`,
+
+  appreciationGuide: `基于提供的表情包素材，创作一张微信表情赞赏引导图。
+要求：
+- 尺寸 750×560 像素
+- 用于吸引用户发赞赏，画面要有感染力
+- 风格必须与表情包一致
+- 可以展示角色做出感谢、期待、可爱的姿势
+- 不可出现与表情不相关的内容
+- 避免出现文字（除非是表情本身的文字风格）
+- 色调温暖友好，让用户产生好感`,
+
+  appreciationThanks: `基于提供的表情包素材，创作一张微信表情赞赏致谢图。
+要求：
+- 尺寸 750×750 像素
+- 用于激发用户分享意愿，画面要有感染力
+- 风格必须与表情包一致
+- 可以展示角色做出感谢、开心、比心的姿势
+- 不可出现与表情不相关的内容
+- 避免出现文字（除非是表情本身的文字风格）
+- 色调温暖友好，传达感谢之情`,
 };
 
 /**
@@ -124,10 +173,12 @@ export const FILE_NAMING = {
   /** ZIP 包名称 */
   ZIP_NAME: 'wechat_sticker_pack.zip',
   /** 获取标准文件名 */
-  getFileName: (type: 'banner' | 'cover' | 'icon', format: 'png' | 'jpeg'): string => {
+  getFileName: (type: 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks', format: 'png' | 'jpeg'): string => {
     const spec = type === 'banner' ? WECHAT_SPECS.BANNER
       : type === 'cover' ? WECHAT_SPECS.COVER
-      : WECHAT_SPECS.ICON;
+      : type === 'icon' ? WECHAT_SPECS.ICON
+      : type === 'appreciationGuide' ? WECHAT_SPECS.APPRECIATION_GUIDE
+      : WECHAT_SPECS.APPRECIATION_THANKS;
     const ext = format === 'jpeg' ? 'jpg' : 'png';
     return `${spec.fileName}.${ext}`;
   },
@@ -153,7 +204,7 @@ export function isValidFileSize(sizeBytes: number): boolean {
 /**
  * 获取图片类型规格
  */
-export function getSpecByType(type: 'banner' | 'cover' | 'icon') {
+export function getSpecByType(type: 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks') {
   switch (type) {
     case 'banner':
       return WECHAT_SPECS.BANNER;
@@ -161,5 +212,9 @@ export function getSpecByType(type: 'banner' | 'cover' | 'icon') {
       return WECHAT_SPECS.COVER;
     case 'icon':
       return WECHAT_SPECS.ICON;
+    case 'appreciationGuide':
+      return WECHAT_SPECS.APPRECIATION_GUIDE;
+    case 'appreciationThanks':
+      return WECHAT_SPECS.APPRECIATION_THANKS;
   }
 }

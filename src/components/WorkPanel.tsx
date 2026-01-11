@@ -18,6 +18,7 @@ import { MATERIAL_IMAGE_LIMIT, REFERENCE_IMAGE_LIMIT } from '../services/imageVa
 import { ImageUploader } from './ImageUploader';
 import { ManualSelectionPanel } from './ManualSelectionPanel';
 import { WeChatStandardizationPanel } from './WeChatStandardizationPanel';
+import { SaveButton } from './SaveButton';
 
 // 示例提示词
 const EXAMPLE_PROMPTS = [
@@ -26,7 +27,6 @@ const EXAMPLE_PROMPTS = [
   '帮我生成一组搞笑的表情包，带有夸张的表情和动作',
 ];
 
-type WorkMode = 'generate' | 'split' | 'standardize';
 type SplitMode = 'auto' | 'manual';
 type SplitAction = 'replace' | 'append';
 
@@ -50,9 +50,10 @@ export function WorkPanel() {
     extractedEmojis,
     aiSegmentationConfig,
     manualSplitConfig,
+    workMode: mode,
+    setWorkMode: setMode,
   } = useAppStore();
 
-  const [mode, setMode] = useState<WorkMode>('generate');
   const [splitMode, setSplitMode] = useState<SplitMode>('auto');
   const [splitAction, setSplitAction] = useState<SplitAction>('replace');
   const [error, setError] = useState<string | null>(null);
@@ -486,6 +487,10 @@ export function WorkPanel() {
                 {/* 图片预览 */}
                 <div className="relative rounded-lg overflow-hidden border border-white/[0.08]">
                   <img src={previewUrl} alt="生成结果" className="w-full h-auto" />
+                  {/* 保存原图按钮 */}
+                  <div className="absolute top-2 right-2">
+                    <SaveButton imageBlob={generatedImage} />
+                  </div>
                 </div>
               </div>
             )}

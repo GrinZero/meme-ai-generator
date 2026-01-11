@@ -47,6 +47,26 @@ const DOWNLOAD_CONFIGS = [
       </svg>
     ),
   },
+  {
+    type: 'appreciationGuide' as const,
+    label: 'P4 赞赏引导图',
+    spec: WECHAT_SPECS.APPRECIATION_GUIDE,
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    type: 'appreciationThanks' as const,
+    label: 'P5 赞赏致谢图',
+    spec: WECHAT_SPECS.APPRECIATION_THANKS,
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    ),
+  },
 ];
 
 /**
@@ -81,9 +101,9 @@ const ZipIcon = () => (
  * 单个下载项组件
  */
 interface DownloadItemProps {
-  type: 'banner' | 'cover' | 'icon';
+  type: 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks';
   label: string;
-  spec: typeof WECHAT_SPECS.BANNER | typeof WECHAT_SPECS.COVER | typeof WECHAT_SPECS.ICON;
+  spec: typeof WECHAT_SPECS.BANNER | typeof WECHAT_SPECS.COVER | typeof WECHAT_SPECS.ICON | typeof WECHAT_SPECS.APPRECIATION_GUIDE | typeof WECHAT_SPECS.APPRECIATION_THANKS;
   icon: React.ReactNode;
   image: ProcessedImage | null;
   onDownload: () => void;
@@ -178,12 +198,14 @@ export function StandardizationDownloadPanel({
   banner,
   cover,
   icon,
+  appreciationGuide,
+  appreciationThanks,
   onDownloadSingle,
   onDownloadAll,
   disabled = false,
 }: StandardizationDownloadPanelProps) {
   // 获取图片的辅助函数
-  const getImageByType = (type: 'banner' | 'cover' | 'icon'): ProcessedImage | null => {
+  const getImageByType = (type: 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks'): ProcessedImage | null => {
     switch (type) {
       case 'banner':
         return banner;
@@ -191,6 +213,10 @@ export function StandardizationDownloadPanel({
         return cover;
       case 'icon':
         return icon;
+      case 'appreciationGuide':
+        return appreciationGuide;
+      case 'appreciationThanks':
+        return appreciationThanks;
     }
   };
 
@@ -200,8 +226,10 @@ export function StandardizationDownloadPanel({
     if (banner) count++;
     if (cover) count++;
     if (icon) count++;
+    if (appreciationGuide) count++;
+    if (appreciationThanks) count++;
     return count;
-  }, [banner, cover, icon]);
+  }, [banner, cover, icon, appreciationGuide, appreciationThanks]);
 
   // 计算总文件大小
   const totalSizeKB = useMemo(() => {
@@ -209,14 +237,13 @@ export function StandardizationDownloadPanel({
     if (banner) total += banner.sizeKB;
     if (cover) total += cover.sizeKB;
     if (icon) total += icon.sizeKB;
+    if (appreciationGuide) total += appreciationGuide.sizeKB;
+    if (appreciationThanks) total += appreciationThanks.sizeKB;
     return total;
-  }, [banner, cover, icon]);
+  }, [banner, cover, icon, appreciationGuide, appreciationThanks]);
 
   // 是否可以批量下载
   const canDownloadAll = availableCount > 0 && !disabled;
-
-  // 是否全部完成
-  const isAllCompleted = availableCount === 3;
 
   return (
     <div className="space-y-4">
@@ -224,8 +251,8 @@ export function StandardizationDownloadPanel({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-white/70">下载</h3>
         {availableCount > 0 && (
-          <span className={`text-xs ${isAllCompleted ? 'text-emerald-400' : 'text-white/40'}`}>
-            {availableCount}/3 可下载
+          <span className="text-xs text-white/40">
+            {availableCount} 个文件可下载
           </span>
         )}
       </div>
@@ -276,16 +303,6 @@ export function StandardizationDownloadPanel({
             生成图片后即可下载
           </p>
         )}
-        {availableCount > 0 && !isAllCompleted && (
-          <p className="mt-2 text-xs text-white/40 text-center">
-            部分图片尚未生成，可先下载已完成的图片
-          </p>
-        )}
-        {isAllCompleted && (
-          <p className="mt-2 text-xs text-emerald-400/70 text-center">
-            所有图片已就绪，点击上方按钮下载 ZIP 包
-          </p>
-        )}
       </div>
 
       {/* 文件命名说明 */}
@@ -295,6 +312,8 @@ export function StandardizationDownloadPanel({
           <li>• P1: banner_750x400.png/jpg</li>
           <li>• P2: cover_240x240.png</li>
           <li>• P3: icon_50x50.png</li>
+          <li>• P4: appreciation_guide_750x560.png/jpg/gif</li>
+          <li>• P5: appreciation_thanks_750x750.png/jpg/gif</li>
         </ul>
       </div>
     </div>

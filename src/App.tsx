@@ -1,4 +1,5 @@
 import { SettingsDrawer, WorkPanel, EmojiGrid, EmojiEditor, SlideTransition } from './components';
+import { WeChatStandardizationResultPanel } from './components/WeChatStandardizationResultPanel';
 import { useAppStore } from './store/useAppStore';
 import './App.css';
 
@@ -8,6 +9,7 @@ function App() {
     selectedEmojiId,
     selectEmoji,
     deleteEmoji,
+    workMode,
   } = useAppStore();
 
   const selectedEmoji = extractedEmojis.find((e) => e.id === selectedEmojiId);
@@ -38,30 +40,38 @@ function App() {
 
           {/* 右侧：结果预览 + 编辑器 */}
           <aside className="result-column">
-            <div className="panel-section card">
-              <EmojiGrid
-                emojis={extractedEmojis}
-                selectedId={selectedEmojiId}
-                onSelect={selectEmoji}
-                onDelete={deleteEmoji}
-                isLoading={false}
-                error={null}
-                onRetry={() => {}}
-              />
+            {/* 微信标准化结果面板 */}
+            <div style={{ display: workMode === 'standardize' ? 'block' : 'none' }}>
+              <WeChatStandardizationResultPanel />
             </div>
 
-            {/* 表情编辑器 */}
-            <SlideTransition show={!!selectedEmoji} direction="right" duration={250}>
-              {selectedEmoji && (
-                <div className="panel-section editor-panel">
-                  <EmojiEditor
-                    emoji={selectedEmoji}
-                    emojiIndex={extractedEmojis.findIndex((e) => e.id === selectedEmojiId) + 1}
-                    onClose={() => selectEmoji(null)}
-                  />
-                </div>
-              )}
-            </SlideTransition>
+            {/* 表情提取和编辑面板 */}
+            <div style={{ display: workMode !== 'standardize' ? 'block' : 'none' }}>
+              <div className="panel-section card">
+                <EmojiGrid
+                  emojis={extractedEmojis}
+                  selectedId={selectedEmojiId}
+                  onSelect={selectEmoji}
+                  onDelete={deleteEmoji}
+                  isLoading={false}
+                  error={null}
+                  onRetry={() => {}}
+                />
+              </div>
+
+              {/* 表情编辑器 */}
+              <SlideTransition show={!!selectedEmoji} direction="right" duration={250}>
+                {selectedEmoji && (
+                  <div className="panel-section editor-panel">
+                    <EmojiEditor
+                      emoji={selectedEmoji}
+                      emojiIndex={extractedEmojis.findIndex((e) => e.id === selectedEmojiId) + 1}
+                      onClose={() => selectEmoji(null)}
+                    />
+                  </div>
+                )}
+              </SlideTransition>
+            </div>
           </aside>
         </div>
       </main>

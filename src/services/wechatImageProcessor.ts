@@ -252,11 +252,29 @@ export async function compressToIconLimit(imageBlob: Blob): Promise<Blob> {
 }
 
 /**
+ * 压缩图片至 P4 赞赏引导图大小限制 (≤500KB)
+ * @param imageBlob 源图片 Blob
+ * @returns 压缩后的图片 Blob
+ */
+export async function compressToAppreciationGuideLimit(imageBlob: Blob): Promise<Blob> {
+  return compressImage(imageBlob, WECHAT_SPECS.APPRECIATION_GUIDE.maxSizeKB, 'jpeg');
+}
+
+/**
+ * 压缩图片至 P5 赞赏致谢图大小限制 (≤500KB)
+ * @param imageBlob 源图片 Blob
+ * @returns 压缩后的图片 Blob
+ */
+export async function compressToAppreciationThanksLimit(imageBlob: Blob): Promise<Blob> {
+  return compressImage(imageBlob, WECHAT_SPECS.APPRECIATION_THANKS.maxSizeKB, 'jpeg');
+}
+
+/**
  * 创建 ProcessedImage 对象
  */
 async function createProcessedImage(
   blob: Blob,
-  type: 'banner' | 'cover' | 'icon',
+  type: 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks',
   width: number,
   height: number,
   format: 'png' | 'jpeg',
@@ -349,6 +367,54 @@ export async function processToIcon(imageBlob: Blob): Promise<ProcessedImage> {
 }
 
 /**
+ * 处理图片为 P4 赞赏引导图规格 (750×560)
+ * @param imageBlob 源图片 Blob
+ * @returns 处理后的 ProcessedImage
+ */
+export async function processToAppreciationGuide(imageBlob: Blob): Promise<ProcessedImage> {
+  const { width, height } = WECHAT_SPECS.APPRECIATION_GUIDE;
+  
+  // 调整尺寸
+  const resizedBlob = await resizeImage(imageBlob, width, height, {
+    format: 'png',
+    quality: 0.92,
+  });
+  
+  return createProcessedImage(
+    resizedBlob,
+    'appreciationGuide',
+    width,
+    height,
+    'png',
+    false  // P4 不需要透明背景
+  );
+}
+
+/**
+ * 处理图片为 P5 赞赏致谢图规格 (750×750)
+ * @param imageBlob 源图片 Blob
+ * @returns 处理后的 ProcessedImage
+ */
+export async function processToAppreciationThanks(imageBlob: Blob): Promise<ProcessedImage> {
+  const { width, height } = WECHAT_SPECS.APPRECIATION_THANKS;
+  
+  // 调整尺寸
+  const resizedBlob = await resizeImage(imageBlob, width, height, {
+    format: 'png',
+    quality: 0.92,
+  });
+  
+  return createProcessedImage(
+    resizedBlob,
+    'appreciationThanks',
+    width,
+    height,
+    'png',
+    false  // P5 不需要透明背景
+  );
+}
+
+/**
  * 获取图片尺寸
  */
 export async function getImageDimensions(blob: Blob): Promise<{ width: number; height: number }> {
@@ -364,11 +430,15 @@ export const WeChatImageProcessor = {
   processToBanner,
   processToCover,
   processToIcon,
+  processToAppreciationGuide,
+  processToAppreciationThanks,
   getImageDimensions,
   compressImage,
   compressToBannerLimit,
   compressToCoverLimit,
   compressToIconLimit,
+  compressToAppreciationGuideLimit,
+  compressToAppreciationThanksLimit,
 };
 
 export default WeChatImageProcessor;

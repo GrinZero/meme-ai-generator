@@ -8,7 +8,7 @@
  */
 
 import JSZip from 'jszip';
-import type { ProcessedImage, StandardizationError } from '../types/wechatStandardization';
+import type { ProcessedImage, StandardizationError, WImageType } from '../types/wechatStandardization';
 import { SUPPORTED_IMAGE_FORMATS, WECHAT_SPECS, FILE_NAMING } from './wechatConstants';
 
 /**
@@ -71,28 +71,30 @@ export function isValidImageMimeType(mimeType: string): boolean {
 /**
  * 生成标准文件名
  * 
- * @param type - 图片类型 ('banner' | 'cover' | 'icon')
- * @param format - 文件格式 ('png' | 'jpeg')
+ * @param type - 图片类型 ('banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks')
+ * @param format - 文件格式 ('png' | 'jpeg' | 'gif')
  * @returns 标准化的文件名
  * 
  * 命名规范:
  * - P1 Banner: 'banner_750x400.{png|jpg}'
  * - P2 Cover: 'cover_240x240.png'
  * - P3 Icon: 'icon_50x50.png'
+ * - P4 Appreciation Guide: 'appreciation_guide_750x560.{png|jpg|gif}'
+ * - P5 Appreciation Thanks: 'appreciation_thanks_750x750.{png|jpg|gif}'
  * 
- * **Validates: Requirements 6.5**
+ * **Validates: Requirements 6.5, 2.10**
  */
 export function generateStandardFileName(
-  type: 'banner' | 'cover' | 'icon',
-  format: 'png' | 'jpeg'
+  type: WImageType,
+  format: 'png' | 'jpeg' | 'gif'
 ): string {
-  return FILE_NAMING.getFileName(type, format);
+  return FILE_NAMING.getFileName(type, format === 'gif' ? 'png' : format);
 }
 
 /**
  * 获取图片类型对应的规格信息
  */
-export function getImageTypeSpec(type: 'banner' | 'cover' | 'icon') {
+export function getImageTypeSpec(type: WImageType) {
   switch (type) {
     case 'banner':
       return WECHAT_SPECS.BANNER;
@@ -100,6 +102,10 @@ export function getImageTypeSpec(type: 'banner' | 'cover' | 'icon') {
       return WECHAT_SPECS.COVER;
     case 'icon':
       return WECHAT_SPECS.ICON;
+    case 'appreciationGuide':
+      return WECHAT_SPECS.APPRECIATION_GUIDE;
+    case 'appreciationThanks':
+      return WECHAT_SPECS.APPRECIATION_THANKS;
   }
 }
 
@@ -114,20 +120,24 @@ export interface ZipContentItem {
 /**
  * 创建标准化 ZIP 包
  * 
- * @param images - 处理后的图片对象，包含 banner、cover、icon
+ * @param images - 处理后的图片对象，包含 banner、cover、icon 以及可选的赞赏图
  * @returns ZIP 文件 Blob
  * 
  * ZIP 包内容:
  * - banner_750x400.{png|jpg}
  * - cover_240x240.png
  * - icon_50x50.png
+ * - appreciation_guide_750x560.{png|jpg} (可选)
+ * - appreciation_thanks_750x750.{png|jpg} (可选)
  * 
- * **Validates: Requirements 6.4**
+ * **Validates: Requirements 6.4, 2.10**
  */
 export async function createStandardizationZip(images: {
   banner: ProcessedImage | null;
   cover: ProcessedImage | null;
   icon: ProcessedImage | null;
+  appreciationGuide?: ProcessedImage | null;
+  appreciationThanks?: ProcessedImage | null;
 }): Promise<Blob> {
   const zip = new JSZip();
   const items: ZipContentItem[] = [];
@@ -148,6 +158,18 @@ export async function createStandardizationZip(images: {
   if (images.icon) {
     const fileName = generateStandardFileName('icon', images.icon.format);
     items.push({ fileName, blob: images.icon.blob });
+  }
+  
+  // 添加 Appreciation Guide (P4) - 当赞赏图存在时包含在 ZIP 包中
+  if (images.appreciationGuide) {
+    const fileName = generateStandardFileName('appreciationGuide', images.appreciationGuide.format);
+    items.push({ fileName, blob: images.appreciationGuide.blob });
+  }
+  
+  // 添加 Appreciation Thanks (P5) - 当赞赏图存在时包含在 ZIP 包中
+  if (images.appreciationThanks) {
+    const fileName = generateStandardFileName('appreciationThanks', images.appreciationThanks.format);
+    items.push({ fileName, blob: images.appreciationThanks.blob });
   }
   
   // 将所有文件添加到 ZIP
@@ -200,12 +222,16 @@ export function downloadProcessedImage(image: ProcessedImage): void {
 /**
  * 下载标准化 ZIP 包
  * 
- * @param images - 处理后的图片对象
+ * @param images - 处理后的图片对象，包含 P1/P2/P3 以及可选的赞赏图
+ * 
+ * **Validates: Requirements 2.10**
  */
 export async function downloadStandardizationZip(images: {
   banner: ProcessedImage | null;
   cover: ProcessedImage | null;
   icon: ProcessedImage | null;
+  appreciationGuide?: ProcessedImage | null;
+  appreciationThanks?: ProcessedImage | null;
 }): Promise<void> {
   const zipBlob = await createStandardizationZip(images);
   triggerFileDownload(zipBlob, getZipFileName());
@@ -226,9 +252,10 @@ export async function getZipFileList(zipBlob: Blob): Promise<string[]> {
  * 验证 ZIP 包内容是否符合规范
  * 
  * @param zipBlob - ZIP 文件 Blob
+ * @param includeAppreciation - 是否包含赞赏图
  * @returns 验证结果
  */
-export async function validateZipContents(zipBlob: Blob): Promise<{
+export async function validateZipContents(zipBlob: Blob, includeAppreciation: boolean = false): Promise<{
   valid: boolean;
   files: string[];
   missingFiles: string[];
@@ -239,6 +266,14 @@ export async function validateZipContents(zipBlob: Blob): Promise<{
     /^cover_240x240\.png$/,
     /^icon_50x50\.png$/,
   ];
+  
+  // 如果包含赞赏图，添加赞赏图的验证模式
+  if (includeAppreciation) {
+    expectedPatterns.push(
+      /^appreciation_guide_750x560\.(png|jpg)$/,
+      /^appreciation_thanks_750x750\.(png|jpg)$/
+    );
+  }
   
   const missingFiles: string[] = [];
   

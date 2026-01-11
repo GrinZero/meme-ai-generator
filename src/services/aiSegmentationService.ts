@@ -138,7 +138,7 @@ export class AISegmentationService {
         return jsonMatch[0];
       } catch {
         // 尝试修复常见的 JSON 问题
-        let fixed = jsonMatch[0]
+        const fixed = jsonMatch[0]
           .replace(/,\s*}/g, '}')  // 移除尾随逗号
           .replace(/,\s*]/g, ']')  // 移除数组尾随逗号
           .replace(/'/g, '"');     // 单引号转双引号

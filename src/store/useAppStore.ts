@@ -38,7 +38,13 @@ const defaultAPIConfig: APIConfig = {
   model: '',
 };
 
+export type WorkMode = 'generate' | 'split' | 'standardize';
+
 interface AppState {
+  // Work Mode
+  workMode: WorkMode;
+  setWorkMode: (mode: WorkMode) => void;
+
   // API Config
   apiConfig: APIConfig;
   setAPIConfig: (config: Partial<APIConfig>) => void;
@@ -103,6 +109,10 @@ type PersistedFields = Pick<AppState, 'apiConfig' | 'languagePreference' | 'aiSe
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // Work Mode
+      workMode: 'generate',
+      setWorkMode: (mode) => set({ workMode: mode }),
+
       // API Config
       apiConfig: defaultAPIConfig,
       setAPIConfig: (config) =>

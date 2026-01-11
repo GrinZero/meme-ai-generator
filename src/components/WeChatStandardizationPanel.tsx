@@ -5,8 +5,10 @@
  * - 整合所有子组件（图片上传、提示词编辑、预览、下载）
  * - 实现工作流布局
  * - 实现从表情包模块导入功能
+ * - 支持赞赏图生成选项
+ * - 支持图片选择和单独处理
  * 
- * Requirements: 7.1-7.4
+ * Requirements: 2.1, 2.2, 4.1, 4.2, 4.3, 4.4, 4.7, 4.9, 4.10, 7.1-7.4
  */
 
 import { useCallback, useEffect, useMemo } from 'react';
@@ -14,20 +16,11 @@ import { useAppStore } from '../store/useAppStore';
 import { useWeChatStandardizationStore } from '../store/useWeChatStandardizationStore';
 import { StandardizationImageUploader } from './StandardizationImageUploader';
 import { StandardizationPromptEditor } from './StandardizationPromptEditor';
-import { StandardizationPreviewPanel } from './StandardizationPreviewPanel';
-import { StandardizationDownloadPanel } from './StandardizationDownloadPanel';
 import {
   generateAll,
-  generateBanner,
-  generateCover,
-  generateIcon,
   cancelGeneration,
 } from '../services/wechatStandardizationService';
-import {
-  downloadProcessedImage,
-  downloadStandardizationZip,
-} from '../services/wechatFileService';
-import type { WeChatStandardizationPanelProps, ProcessingStatus } from '../types/wechatStandardization';
+import type { WeChatStandardizationPanelProps, ProcessingStatus, ProcessedImage, StandardizationResult } from '../types/wechatStandardization';
 import type { ExtractedEmoji } from '../types/image';
 
 /**
@@ -40,21 +33,25 @@ export function WeChatStandardizationPanel({
   importedEmojis,
   onClose,
 }: WeChatStandardizationPanelProps) {
-  // 获取 API 配置
-  const { apiConfig } = useAppStore();
+  // 获取 API 配置和提取的表情
+  const { apiConfig, extractedEmojis } = useAppStore();
 
   // 获取标准化 Store 状态和方法
   const {
     sourceImages,
     prompts,
-    result,
     status,
+    enabledTypes,
     addSourceImages,
     removeSourceImage,
     importFromEmojis,
     setPrompt,
     resetPrompt,
+    setAppreciationPrompt,
+    resetAppreciationPrompt,
+    toggleEnabledType,
     reset,
+    updateResult,
   } = useWeChatStandardizationStore();
 
   // 内部状态更新方法（直接操作 store）
@@ -62,7 +59,7 @@ export function WeChatStandardizationPanel({
     useWeChatStandardizationStore.setState({ status: newStatus });
   }, []);
 
-  const setResult = useCallback((newResult: typeof result) => {
+  const setResult = useCallback((newResult: StandardizationResult | null) => {
     useWeChatStandardizationStore.setState({ result: newResult });
   }, []);
 
@@ -102,7 +99,7 @@ export function WeChatStandardizationPanel({
 
   // 进度回调
   const handleProgress = useCallback((
-    type: 'p1' | 'p2' | 'p3',
+    type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks',
     stage: 'generating' | 'processing' | 'completed' | 'error',
     progress?: number,
     error?: string
@@ -116,11 +113,19 @@ export function WeChatStandardizationPanel({
     }
   }, [setStatus]);
 
+  // 单张图片生成回调
+  const handleImageGenerated = useCallback((image: ProcessedImage) => {
+    updateResult({ [image.type]: image });
+  }, [updateResult]);
+
   // 开始生成所有图片
   const handleStartGeneration = useCallback(async () => {
     if (!canGenerate) return;
 
-    setStatus({ stage: 'generating', type: 'p1', progress: 0 });
+    // 找到第一个启用的类型作为初始状态显示
+    const firstEnabledType = (Object.entries(enabledTypes).find(([, enabled]) => enabled)?.[0] || 'p1') as 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks';
+    
+    setStatus({ stage: 'generating', type: firstEnabledType, progress: 0 });
     setResult(null);
 
     try {
@@ -128,7 +133,9 @@ export function WeChatStandardizationPanel({
         sourceImages,
         prompts,
         apiConfig,
-        handleProgress
+        handleProgress,
+        enabledTypes,
+        handleImageGenerated
       );
 
       setResult(generationResult);
@@ -146,55 +153,7 @@ export function WeChatStandardizationPanel({
         message: error instanceof Error ? error.message : '生成失败',
       });
     }
-  }, [canGenerate, sourceImages, prompts, apiConfig, handleProgress, setStatus, setResult]);
-
-  // 重新生成单个类型
-  const handleRegenerate = useCallback(async (type: 'p1' | 'p2' | 'p3') => {
-    if (sourceImages.length === 0 || isProcessing) return;
-
-    setStatus({ stage: 'generating', type, progress: 0 });
-
-    try {
-      let newImage;
-      const prompt = prompts[type];
-
-      switch (type) {
-        case 'p1':
-          newImage = await generateBanner(sourceImages, prompt, apiConfig, handleProgress);
-          break;
-        case 'p2':
-          newImage = await generateCover(sourceImages, prompt, apiConfig, handleProgress);
-          break;
-        case 'p3':
-          newImage = await generateIcon(sourceImages, prompt, apiConfig, handleProgress);
-          break;
-      }
-
-      // 更新结果
-      const currentResult = result || { banner: null, cover: null, icon: null, errors: [] };
-      const updatedResult = { ...currentResult };
-
-      switch (type) {
-        case 'p1':
-          updatedResult.banner = newImage;
-          break;
-        case 'p2':
-          updatedResult.cover = newImage;
-          break;
-        case 'p3':
-          updatedResult.icon = newImage;
-          break;
-      }
-
-      setResult(updatedResult);
-      setStatus({ stage: 'completed' });
-    } catch (error) {
-      setStatus({
-        stage: 'error',
-        message: error instanceof Error ? error.message : `重新生成 ${type.toUpperCase()} 失败`,
-      });
-    }
-  }, [sourceImages, prompts, apiConfig, isProcessing, result, handleProgress, setStatus, setResult]);
+  }, [canGenerate, sourceImages, prompts, apiConfig, enabledTypes, handleProgress, setStatus, setResult, handleImageGenerated]);
 
   // 取消生成
   const handleCancel = useCallback(() => {
@@ -202,35 +161,25 @@ export function WeChatStandardizationPanel({
     setStatus({ stage: 'idle' });
   }, [setStatus]);
 
-  // 下载单个图片
-  const handleDownloadSingle = useCallback((type: 'banner' | 'cover' | 'icon') => {
-    if (!result) return;
-
-    const image = result[type];
-    if (image) {
-      downloadProcessedImage(image);
-    }
-  }, [result]);
-
-  // 批量下载
-  const handleDownloadAll = useCallback(async () => {
-    if (!result) return;
-
-    try {
-      await downloadStandardizationZip({
-        banner: result.banner,
-        cover: result.cover,
-        icon: result.icon,
-      });
-    } catch (error) {
-      console.error('下载失败:', error);
-    }
-  }, [result]);
-
   // 重置面板
   const handleReset = useCallback(() => {
     reset();
   }, [reset]);
+
+  // 获取当前进度文本
+  const getProgressText = useCallback(() => {
+    if (status.stage === 'generating' && 'type' in status) {
+      const typeLabels: Record<string, string> = {
+        p1: 'P1 横幅',
+        p2: 'P2 封面',
+        p3: 'P3 图标',
+        appreciationGuide: 'P4 赞赏引导图',
+        appreciationThanks: 'P5 赞赏致谢图',
+      };
+      return `正在生成 ${typeLabels[status.type] || status.type}...`;
+    }
+    return '处理中...';
+  }, [status]);
 
   return (
     <div className="bg-[#242424]/80 backdrop-blur-md rounded-xl border border-white/[0.08] overflow-hidden">
@@ -277,21 +226,67 @@ export function WeChatStandardizationPanel({
       <div className="p-4 sm:p-6 space-y-6">
         {/* 第一行：图片上传和提示词编辑 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 图片上传 */}
-          <StandardizationImageUploader
-            images={sourceImages}
-            onUpload={addSourceImages}
-            onDelete={removeSourceImage}
-            disabled={isProcessing}
-          />
+          {/* 左侧：图片上传和表情选择 */}
+          <div className="space-y-6">
+            <StandardizationImageUploader
+              images={sourceImages}
+              onUpload={addSourceImages}
+              onDelete={removeSourceImage}
+              disabled={isProcessing}
+            />
+
+            {/* 提取的表情快捷选择 */}
+            {extractedEmojis.length > 0 && (
+              <div className="bg-[#1a1a1a]/30 rounded-lg p-4 border border-white/[0.05]">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-white/70">从提取的表情添加</h3>
+                  <span className="text-xs text-white/30">共 {extractedEmojis.length} 个</span>
+                </div>
+                <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                  {extractedEmojis.map((emoji) => (
+                    <button
+                      key={emoji.id}
+                      onClick={() => importFromEmojis([emoji])}
+                      disabled={isProcessing}
+                      className="relative aspect-square rounded-md overflow-hidden border border-white/[0.05] hover:border-[#07c160] hover:ring-1 hover:ring-[#07c160] transition-all group"
+                      title="点击添加到素材"
+                    >
+                      <img
+                        src={emoji.preview}
+                        alt={`Emoji ${emoji.id}`}
+                        className="w-full h-full object-contain bg-[#1a1a1a]"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* 提示词编辑 */}
           <StandardizationPromptEditor
-            p1Prompt={prompts.p1}
-            p2Prompt={prompts.p2}
-            p3Prompt={prompts.p3}
-            onPromptChange={setPrompt}
-            onReset={resetPrompt}
+            prompts={prompts}
+            enabledTypes={enabledTypes}
+            onPromptChange={(type, value) => {
+              if (type === 'appreciationGuide' || type === 'appreciationThanks') {
+                setAppreciationPrompt(type, value);
+              } else {
+                setPrompt(type, value);
+              }
+            }}
+            onReset={(type) => {
+              if (type === 'appreciationGuide' || type === 'appreciationThanks') {
+                resetAppreciationPrompt(type);
+              } else {
+                resetPrompt(type);
+              }
+            }}
+            onToggleType={toggleEnabledType}
           />
         </div>
 
@@ -305,9 +300,7 @@ export function WeChatStandardizationPanel({
               >
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/20 border-t-[#07c160] rounded-full animate-spin" />
-                  {status.stage === 'generating' && 'type' in status
-                    ? `正在生成 ${status.type.toUpperCase()}...`
-                    : '处理中...'}
+                  {getProgressText()}
                 </span>
               </button>
               <button
@@ -332,27 +325,28 @@ export function WeChatStandardizationPanel({
           )}
         </div>
 
-        {/* 第二行：预览和下载 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 预览面板 */}
-          <StandardizationPreviewPanel
-            p1Preview={result?.banner || null}
-            p2Preview={result?.cover || null}
-            p3Preview={result?.icon || null}
-            status={status}
-            onRegenerate={handleRegenerate}
-          />
-
-          {/* 下载面板 */}
-          <StandardizationDownloadPanel
-            banner={result?.banner || null}
-            cover={result?.cover || null}
-            icon={result?.icon || null}
-            onDownloadSingle={handleDownloadSingle}
-            onDownloadAll={handleDownloadAll}
-            disabled={isProcessing}
-          />
-        </div>
+        {/* 错误状态 */}
+        {status.stage === 'error' && (
+          <div 
+            className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20"
+            role="alert"
+          >
+            <svg 
+              className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+              />
+            </svg>
+            <p className="text-sm text-rose-400 flex-1">{status.message}</p>
+          </div>
+        )}
       </div>
     </div>
   );

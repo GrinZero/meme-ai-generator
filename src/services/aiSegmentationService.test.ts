@@ -117,7 +117,7 @@ describe('AI Segmentation Service Property Tests', () => {
             width: 0,
             height: 0,
             getContext: () => mockContext,
-            toBlob: (callback: (blob: Blob | null) => void, _type: string, _quality: number) => {
+            toBlob: (callback: (blob: Blob | null) => void) => {
               // Return a smaller blob to simulate compression
               const smallBlob = createMockBlob(1024 * 1024); // 1MB
               callback(smallBlob);

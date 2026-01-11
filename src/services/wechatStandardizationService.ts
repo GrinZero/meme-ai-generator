@@ -15,15 +15,21 @@ import type {
   StandardizationPrompts,
   StandardizationResult,
   StandardizationError,
+  EnabledTypes,
+  ProcessingParams,
 } from '../types/wechatStandardization';
 import { generateImage, cancelGeneration as cancelAIGeneration } from './aiService';
 import {
   processToBanner,
   processToCover,
   processToIcon,
+  processToAppreciationGuide,
+  processToAppreciationThanks,
   compressToBannerLimit,
   compressToCoverLimit,
   compressToIconLimit,
+  compressToAppreciationGuideLimit,
+  compressToAppreciationThanksLimit,
 } from './wechatImageProcessor';
 import {
   removeBackgroundForCover,
@@ -35,7 +41,7 @@ import { WECHAT_SPECS } from './wechatConstants';
  * 生成进度回调类型
  */
 export type ProgressCallback = (
-  type: 'p1' | 'p2' | 'p3',
+  type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks',
   stage: 'generating' | 'processing' | 'completed' | 'error',
   progress?: number,
   error?: string
@@ -84,8 +90,12 @@ export async function generateBanner(
   sourceImages: SourceImage[],
   prompt: string,
   apiConfig: APIConfig,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  params?: ProcessingParams
 ): Promise<ProcessedImage> {
+  // params 参数未使用，保留以保持接口一致性
+  void params;
+
   try {
     // 1. AI 生成
     onProgress?.('p1', 'generating', 0);
@@ -99,13 +109,16 @@ export async function generateBanner(
         result.error || 'AI 生成 P1 横幅失败'
       );
     }
+
+    const originalBlob = result.imageBlob;
     
     onProgress?.('p1', 'generating', 50);
     
     // 2. 图像处理（尺寸调整）
     onProgress?.('p1', 'processing');
     
-    const processedImage = await processToBanner(result.imageBlob);
+    // Banner 目前不涉及背景移除，直接处理
+    const processedImage = await processToBanner(originalBlob);
     
     // 3. 压缩至大小限制
     const compressedBlob = await compressToBannerLimit(processedImage.blob);
@@ -117,6 +130,8 @@ export async function generateBanner(
       sizeKB: compressedBlob.size / 1024,
       // 更新预览 URL
       preview: URL.createObjectURL(compressedBlob),
+      originalBlob: originalBlob,
+      originalPreview: URL.createObjectURL(originalBlob),
     };
     
     // 释放旧的预览 URL
@@ -160,7 +175,8 @@ export async function generateCover(
   sourceImages: SourceImage[],
   prompt: string,
   apiConfig: APIConfig,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  params?: ProcessingParams
 ): Promise<ProcessedImage> {
   try {
     // 1. AI 生成
@@ -175,22 +191,30 @@ export async function generateCover(
         result.error || 'AI 生成 P2 封面失败'
       );
     }
+
+    const originalBlob = result.imageBlob;
     
     onProgress?.('p2', 'generating', 30);
     
     // 2. 背景透明化
     onProgress?.('p2', 'processing');
     
-    const bgRemovalResult = await removeBackgroundForCover(result.imageBlob);
-    
-    if (bgRemovalResult.didFallback) {
-      console.warn('[wechatStandardizationService] P2 背景移除使用了回退算法:', bgRemovalResult.error);
+    let blobToProcess = originalBlob;
+
+    // 检查是否需要移除背景 (默认为 true)
+    if (params?.removeBackground !== false) {
+      const bgRemovalResult = await removeBackgroundForCover(originalBlob);
+      
+      if (bgRemovalResult.didFallback) {
+        console.warn('[wechatStandardizationService] P2 背景移除使用了回退算法:', bgRemovalResult.error);
+      }
+      blobToProcess = bgRemovalResult.blob;
     }
     
     onProgress?.('p2', 'generating', 60);
     
     // 3. 图像处理（尺寸调整）
-    const processedImage = await processToCover(bgRemovalResult.blob);
+    const processedImage = await processToCover(blobToProcess);
     
     // 4. 压缩至大小限制
     const compressedBlob = await compressToCoverLimit(processedImage.blob);
@@ -202,6 +226,8 @@ export async function generateCover(
       sizeKB: compressedBlob.size / 1024,
       hasTransparency: true,
       preview: URL.createObjectURL(compressedBlob),
+      originalBlob: originalBlob,
+      originalPreview: URL.createObjectURL(originalBlob),
     };
     
     // 释放旧的预览 URL
@@ -245,7 +271,8 @@ export async function generateIcon(
   sourceImages: SourceImage[],
   prompt: string,
   apiConfig: APIConfig,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  params?: ProcessingParams
 ): Promise<ProcessedImage> {
   try {
     // 1. AI 生成
@@ -260,22 +287,30 @@ export async function generateIcon(
         result.error || 'AI 生成 P3 图标失败'
       );
     }
+
+    const originalBlob = result.imageBlob;
     
     onProgress?.('p3', 'generating', 30);
     
     // 2. 背景透明化
     onProgress?.('p3', 'processing');
     
-    const bgRemovalResult = await removeBackgroundForIcon(result.imageBlob);
-    
-    if (bgRemovalResult.didFallback) {
-      console.warn('[wechatStandardizationService] P3 背景移除使用了回退算法:', bgRemovalResult.error);
+    let blobToProcess = originalBlob;
+
+    // 检查是否需要移除背景 (默认为 true)
+    if (params?.removeBackground !== false) {
+      const bgRemovalResult = await removeBackgroundForIcon(originalBlob);
+      
+      if (bgRemovalResult.didFallback) {
+        console.warn('[wechatStandardizationService] P3 背景移除使用了回退算法:', bgRemovalResult.error);
+      }
+      blobToProcess = bgRemovalResult.blob;
     }
     
     onProgress?.('p3', 'generating', 60);
     
     // 3. 图像处理（尺寸调整）
-    const processedImage = await processToIcon(bgRemovalResult.blob);
+    const processedImage = await processToIcon(blobToProcess);
     
     // 4. 压缩至大小限制
     const compressedBlob = await compressToIconLimit(processedImage.blob);
@@ -287,6 +322,8 @@ export async function generateIcon(
       sizeKB: compressedBlob.size / 1024,
       hasTransparency: true,
       preview: URL.createObjectURL(compressedBlob),
+      originalBlob: originalBlob,
+      originalPreview: URL.createObjectURL(originalBlob),
     };
     
     // 释放旧的预览 URL
@@ -309,32 +346,211 @@ export async function generateIcon(
   }
 }
 
-
 /**
- * 批量生成所有类型的图片（P1、P2、P3）
+ * 生成 P4 赞赏引导图
  * 
- * 按顺序生成 P1 横幅、P2 封面、P3 图标
- * 即使某个类型生成失败，也会继续生成其他类型
+ * 流程：
+ * 1. 调用 AI API 生成基础图例
+ * 2. 调整尺寸为 750×560
+ * 3. 压缩至 ≤500KB
  * 
- * Requirements: 3.1, 3.5, 3.6, 3.7
+ * Requirements: 2.3, 2.5, 2.9
  * 
  * @param sourceImages - 源图片列表
- * @param prompts - 三种类型的提示词
+ * @param prompt - 赞赏引导图提示词
  * @param apiConfig - API 配置
  * @param onProgress - 进度回调（可选）
+ * @returns 处理后的 P4 赞赏引导图
+ */
+export async function generateAppreciationGuide(
+  sourceImages: SourceImage[],
+  prompt: string,
+  apiConfig: APIConfig,
+  onProgress?: ProgressCallback,
+  params?: ProcessingParams
+): Promise<ProcessedImage> {
+  // params 参数未使用，保留以保持接口一致性
+  void params;
+
+  try {
+    // 1. AI 生成
+    onProgress?.('appreciationGuide', 'generating', 0);
+    
+    const uploadedImages = sourceImagesToUploadedImages(sourceImages);
+    const result = await generateImage(apiConfig, prompt, uploadedImages);
+    
+    if (!result.success || !result.imageBlob) {
+      throw createError(
+        'APPRECIATION_GENERATION_FAILED',
+        result.error || 'AI 生成赞赏引导图失败'
+      );
+    }
+
+    const originalBlob = result.imageBlob;
+    
+    onProgress?.('appreciationGuide', 'generating', 50);
+    
+    // 2. 图像处理（尺寸调整）
+    onProgress?.('appreciationGuide', 'processing');
+    
+    const processedImage = await processToAppreciationGuide(originalBlob);
+    
+    // 3. 压缩至大小限制
+    const compressedBlob = await compressToAppreciationGuideLimit(processedImage.blob);
+    
+    // 更新处理后的图片信息
+    const finalImage: ProcessedImage = {
+      ...processedImage,
+      blob: compressedBlob,
+      sizeKB: compressedBlob.size / 1024,
+      preview: URL.createObjectURL(compressedBlob),
+      originalBlob: originalBlob,
+      originalPreview: URL.createObjectURL(originalBlob),
+    };
+    
+    // 释放旧的预览 URL
+    if (processedImage.preview !== finalImage.preview) {
+      URL.revokeObjectURL(processedImage.preview);
+    }
+    
+    onProgress?.('appreciationGuide', 'completed');
+    
+    return finalImage;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    onProgress?.('appreciationGuide', 'error', undefined, errorMessage);
+    
+    if ((error as StandardizationError).type) {
+      throw error;
+    }
+    
+    throw createError('APPRECIATION_GENERATION_FAILED', `赞赏引导图处理失败: ${errorMessage}`, error);
+  }
+}
+
+/**
+ * 生成 P5 赞赏致谢图
+ * 
+ * 流程：
+ * 1. 调用 AI API 生成基础图例
+ * 2. 调整尺寸为 750×750
+ * 3. 压缩至 ≤500KB
+ * 
+ * Requirements: 2.4, 2.6, 2.9
+ * 
+ * @param sourceImages - 源图片列表
+ * @param prompt - 赞赏致谢图提示词
+ * @param apiConfig - API 配置
+ * @param onProgress - 进度回调（可选）
+ * @returns 处理后的 P5 赞赏致谢图
+ */
+export async function generateAppreciationThanks(
+  sourceImages: SourceImage[],
+  prompt: string,
+  apiConfig: APIConfig,
+  onProgress?: ProgressCallback,
+  params?: ProcessingParams
+): Promise<ProcessedImage> {
+  // params 参数未使用，保留以保持接口一致性
+  void params;
+
+  try {
+    // 1. AI 生成
+    onProgress?.('appreciationThanks', 'generating', 0);
+    
+    const uploadedImages = sourceImagesToUploadedImages(sourceImages);
+    const result = await generateImage(apiConfig, prompt, uploadedImages);
+    
+    if (!result.success || !result.imageBlob) {
+      throw createError(
+        'APPRECIATION_GENERATION_FAILED',
+        result.error || 'AI 生成赞赏致谢图失败'
+      );
+    }
+
+    const originalBlob = result.imageBlob;
+    
+    onProgress?.('appreciationThanks', 'generating', 50);
+    
+    // 2. 图像处理（尺寸调整）
+    onProgress?.('appreciationThanks', 'processing');
+    
+    const processedImage = await processToAppreciationThanks(originalBlob);
+    
+    // 3. 压缩至大小限制
+    const compressedBlob = await compressToAppreciationThanksLimit(processedImage.blob);
+    
+    // 更新处理后的图片信息
+    const finalImage: ProcessedImage = {
+      ...processedImage,
+      blob: compressedBlob,
+      sizeKB: compressedBlob.size / 1024,
+      preview: URL.createObjectURL(compressedBlob),
+      originalBlob: originalBlob,
+      originalPreview: URL.createObjectURL(originalBlob),
+    };
+    
+    // 释放旧的预览 URL
+    if (processedImage.preview !== finalImage.preview) {
+      URL.revokeObjectURL(processedImage.preview);
+    }
+    
+    onProgress?.('appreciationThanks', 'completed');
+    
+    return finalImage;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    onProgress?.('appreciationThanks', 'error', undefined, errorMessage);
+    
+    if ((error as StandardizationError).type) {
+      throw error;
+    }
+    
+    throw createError('APPRECIATION_GENERATION_FAILED', `赞赏致谢图处理失败: ${errorMessage}`, error);
+  }
+}
+
+
+/**
+ * 批量生成所有类型的图片（P1、P2、P3，可选 P4、P5）
+ * 
+ * 按顺序生成 P1 横幅、P2 封面、P3 图标，以及可选的赞赏图
+ * 即使某个类型生成失败，也会继续生成其他类型
+ * 
+ * Requirements: 3.1, 3.5, 3.6, 3.7, 2.3, 2.4, 2.9
+ * 
+ * @param sourceImages - 源图片列表
+ * @param prompts - 所有类型的提示词
+ * @param apiConfig - API 配置
+ * @param onProgress - 进度回调（可选）
+ * @param enabledTypes - 启用的图片类型（可选，默认全开）
+ * @param onImageGenerated - 单张图片生成完成回调（可选）
  * @returns 标准化处理结果（包含成功的图片和错误信息）
  */
 export async function generateAll(
   sourceImages: SourceImage[],
   prompts: StandardizationPrompts,
   apiConfig: APIConfig,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  enabledTypes?: EnabledTypes,
+  onImageGenerated?: (image: ProcessedImage) => void
 ): Promise<StandardizationResult> {
   const result: StandardizationResult = {
     banner: null,
     cover: null,
     icon: null,
+    appreciationGuide: null,
+    appreciationThanks: null,
     errors: [],
+  };
+
+  // 默认开启所有类型（兼容旧调用）
+  const types = enabledTypes || {
+    p1: true,
+    p2: true,
+    p3: true,
+    appreciationGuide: false,
+    appreciationThanks: false,
   };
 
   // 检查源图片
@@ -347,39 +563,88 @@ export async function generateAll(
   }
 
   // 1. 生成 P1 横幅
-  try {
-    result.banner = await generateBanner(sourceImages, prompts.p1, apiConfig, onProgress);
-  } catch (error) {
-    const err = error as StandardizationError;
-    result.errors.push({
-      type: err.type || 'AI_GENERATION_FAILED',
-      message: err.message || 'P1 横幅生成失败',
-      details: err.details,
-    });
+  if (types.p1) {
+    try {
+      result.banner = await generateBanner(sourceImages, prompts.p1, apiConfig, onProgress);
+      onImageGenerated?.(result.banner);
+    } catch (error) {
+      const err = error as StandardizationError;
+      result.errors.push({
+        type: err.type || 'AI_GENERATION_FAILED',
+        message: err.message || 'P1 横幅生成失败',
+        details: err.details,
+      });
+    }
   }
 
   // 2. 生成 P2 封面
-  try {
-    result.cover = await generateCover(sourceImages, prompts.p2, apiConfig, onProgress);
-  } catch (error) {
-    const err = error as StandardizationError;
-    result.errors.push({
-      type: err.type || 'AI_GENERATION_FAILED',
-      message: err.message || 'P2 封面生成失败',
-      details: err.details,
-    });
+  if (types.p2) {
+    try {
+      result.cover = await generateCover(sourceImages, prompts.p2, apiConfig, onProgress);
+      onImageGenerated?.(result.cover);
+    } catch (error) {
+      const err = error as StandardizationError;
+      result.errors.push({
+        type: err.type || 'AI_GENERATION_FAILED',
+        message: err.message || 'P2 封面生成失败',
+        details: err.details,
+      });
+    }
   }
 
   // 3. 生成 P3 图标
-  try {
-    result.icon = await generateIcon(sourceImages, prompts.p3, apiConfig, onProgress);
-  } catch (error) {
-    const err = error as StandardizationError;
-    result.errors.push({
-      type: err.type || 'AI_GENERATION_FAILED',
-      message: err.message || 'P3 图标生成失败',
-      details: err.details,
-    });
+  if (types.p3) {
+    try {
+      result.icon = await generateIcon(sourceImages, prompts.p3, apiConfig, onProgress);
+      onImageGenerated?.(result.icon);
+    } catch (error) {
+      const err = error as StandardizationError;
+      result.errors.push({
+        type: err.type || 'AI_GENERATION_FAILED',
+        message: err.message || 'P3 图标生成失败',
+        details: err.details,
+      });
+    }
+  }
+
+  // 4. 生成赞赏引导图
+  if (types.appreciationGuide) {
+    try {
+      result.appreciationGuide = await generateAppreciationGuide(
+        sourceImages,
+        prompts.appreciationGuide,
+        apiConfig,
+        onProgress
+      );
+      onImageGenerated?.(result.appreciationGuide);
+    } catch (error) {
+      const err = error as StandardizationError;
+      result.errors.push({
+        type: err.type || 'APPRECIATION_GENERATION_FAILED',
+        message: err.message || '赞赏引导图生成失败',
+        details: err.details,
+      });
+    }
+  }
+
+  // 5. 生成赞赏致谢图
+  if (types.appreciationThanks) {
+    try {
+      result.appreciationThanks = await generateAppreciationThanks(
+        sourceImages,
+        prompts.appreciationThanks,
+        apiConfig,
+        onProgress
+      );
+      onImageGenerated?.(result.appreciationThanks);
+    } catch (error) {
+      const err = error as StandardizationError;
+      result.errors.push({
+        type: err.type || 'APPRECIATION_GENERATION_FAILED',
+        message: err.message || '赞赏致谢图生成失败',
+        details: err.details,
+      });
+    }
   }
 
   return result;
@@ -444,6 +709,8 @@ export const WeChatStandardizationService = {
   generateBanner,
   generateCover,
   generateIcon,
+  generateAppreciationGuide,
+  generateAppreciationThanks,
   generateAll,
   cancelGeneration,
   validateProcessedImage,

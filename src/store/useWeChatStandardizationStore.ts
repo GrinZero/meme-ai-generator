@@ -8,8 +8,10 @@
  * - 提示词管理（设置、重置）
  * - 处理状态管理
  * - 生成流程控制
+ * - 赞赏图生成开关
+ * - 图片选择和重新处理
  * 
- * Requirements: 1.3-1.5, 2.5-2.6, 3.1, 7.3
+ * Requirements: 1.3-1.5, 2.1, 2.2, 2.5-2.8, 3.1, 4.3, 4.6, 4.9, 4.10, 7.3
  */
 
 import { create } from 'zustand';
@@ -20,6 +22,9 @@ import type {
   StandardizationResult,
   ProcessingStatus,
   WeChatStandardizationState,
+  WImageType,
+  ProcessingParams,
+  ProcessedImage,
 } from '../types/wechatStandardization';
 import {
   DEFAULT_PROMPTS,
@@ -34,6 +39,16 @@ const generateId = (): string =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 /**
+ * 默认切割参数
+ */
+const DEFAULT_PROCESSING_PARAMS: ProcessingParams = {
+  tolerance: 30,
+  minArea: 100,
+  minSize: 10,
+  removeBackground: true,
+};
+
+/**
  * 初始状态
  */
 const initialState = {
@@ -41,6 +56,17 @@ const initialState = {
   prompts: { ...DEFAULT_PROMPTS },
   result: null as StandardizationResult | null,
   status: { stage: 'idle' } as ProcessingStatus,
+  enabledTypes: {
+    p1: true,
+    p2: true,
+    p3: true,
+    appreciationGuide: false,
+    appreciationThanks: false,
+  },
+  selectedImageType: null as WImageType | null,
+  reprocessPrompt: '',
+  reprocessParams: { ...DEFAULT_PROCESSING_PARAMS },
+  reprocessResult: null as ProcessedImage | null,
 };
 
 /**
@@ -204,6 +230,267 @@ export const useWeChatStandardizationStore = create<WeChatStandardizationState>(
     resetAllPrompts: () => {
       set({
         prompts: { ...DEFAULT_PROMPTS },
+      });
+    },
+
+    // ==================== 赞赏图提示词管理 ====================
+
+    /**
+     * 设置赞赏图提示词
+     * 
+     * Requirements: 2.7
+     */
+    setAppreciationPrompt: (type: 'appreciationGuide' | 'appreciationThanks', value: string) => {
+      const { prompts } = get();
+      set({
+        prompts: {
+          ...prompts,
+          [type]: value,
+        },
+      });
+    },
+
+    /**
+     * 重置赞赏图提示词为默认值
+     * 
+     * Requirements: 2.8
+     */
+    resetAppreciationPrompt: (type: 'appreciationGuide' | 'appreciationThanks') => {
+      const { prompts } = get();
+      set({
+        prompts: {
+          ...prompts,
+          [type]: DEFAULT_PROMPTS[type],
+        },
+      });
+    },
+
+    // ==================== 启用类型管理 ====================
+
+    /**
+     * 切换指定类型的启用状态
+     */
+    toggleEnabledType: (type) => {
+      const { enabledTypes } = get();
+      set({
+        enabledTypes: {
+          ...enabledTypes,
+          [type]: !enabledTypes[type],
+        },
+      });
+    },
+
+    /**
+     * 批量设置启用类型
+     */
+    setEnabledTypes: (types) => {
+      set({
+        enabledTypes: types,
+      });
+    },
+
+    // ==================== 图片选择和重新处理 ====================
+
+    /**
+     * 设置当前选中的图片类型
+     * 
+     * Requirements: 4.3
+     */
+    setSelectedImageType: (type: WImageType | null) => {
+      const { result, prompts } = get();
+      
+      // 当选中图片时，初始化 reprocessPrompt 为对应类型的当前提示词
+      let initialPrompt = '';
+      if (type && result) {
+        switch (type) {
+          case 'banner':
+            initialPrompt = prompts.p1;
+            break;
+          case 'cover':
+            initialPrompt = prompts.p2;
+            break;
+          case 'icon':
+            initialPrompt = prompts.p3;
+            break;
+          case 'appreciationGuide':
+            initialPrompt = prompts.appreciationGuide;
+            break;
+          case 'appreciationThanks':
+            initialPrompt = prompts.appreciationThanks;
+            break;
+        }
+      }
+      
+      // 根据类型设置默认的 removeBackground
+      const shouldRemoveBackground = type === 'cover' || type === 'icon';
+
+      set({
+        selectedImageType: type,
+        reprocessPrompt: initialPrompt,
+        reprocessResult: null, // 清除之前的重新处理结果
+        reprocessParams: {
+          ...DEFAULT_PROCESSING_PARAMS,
+          removeBackground: shouldRemoveBackground,
+        },
+      });
+    },
+
+    /**
+     * 设置重新处理的提示词
+     * 
+     * Requirements: 4.6
+     */
+    setReprocessPrompt: (prompt: string) => {
+      set({
+        reprocessPrompt: prompt,
+      });
+    },
+
+    /**
+     * 设置重新处理的参数
+     */
+    setReprocessParams: (params: ProcessingParams) => {
+      set({
+        reprocessParams: params,
+      });
+    },
+
+    /**
+     * 重新生成选中的图片
+     * 
+     * Requirements: 4.6
+     */
+    regenerateSelected: async (apiConfig: APIConfig) => {
+      const { sourceImages, selectedImageType } = get();
+      // apiConfig 将在实际生成逻辑实现时使用
+      // void apiConfig;
+      void apiConfig;
+
+      if (!selectedImageType) {
+        set({
+          status: { stage: 'error', message: '请先选择要重新生成的图片' },
+        });
+        return;
+      }
+
+      // 检查是否有源图片
+      if (sourceImages.length === 0) {
+        set({
+          status: { stage: 'error', message: '请先上传至少一张图片' },
+        });
+        return;
+      }
+
+      // 创建新的 AbortController
+      abortController = new AbortController();
+
+      try {
+        // 映射 WImageType 到 ProcessingStatus 的 type
+        const statusType = selectedImageType === 'banner' ? 'p1'
+          : selectedImageType === 'cover' ? 'p2'
+          : selectedImageType === 'icon' ? 'p3'
+          : selectedImageType;
+
+        // 设置生成状态
+        set({
+          status: { stage: 'generating', type: statusType, progress: 0 },
+        });
+
+        // TODO: 实际的重新生成逻辑将在后续任务中实现
+        // 这里只是状态管理的框架
+        
+        // 模拟生成完成
+        set({
+          status: { stage: 'completed' },
+          // reprocessResult 将在实际实现时设置
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          // 用户取消了生成
+          set({
+            status: { stage: 'idle' },
+          });
+        } else {
+          set({
+            status: {
+              stage: 'error',
+              message: error instanceof Error ? error.message : '重新生成失败',
+            },
+          });
+        }
+      }
+    },
+
+    /**
+     * 更新部分结果（用于增量显示生成图片）
+     */
+    updateResult: (partialResult: Partial<StandardizationResult>) => {
+      const { result } = get();
+      set({
+        result: result ? { ...result, ...partialResult } : {
+          banner: null,
+          cover: null,
+          icon: null,
+          appreciationGuide: null,
+          appreciationThanks: null,
+          errors: [],
+          ...partialResult
+        } as StandardizationResult,
+      });
+    },
+
+    /**
+     * 用重新生成的图片替换原有图片
+     * 
+     * Requirements: 4.9
+     */
+    replaceWithReprocessed: () => {
+      const { result, selectedImageType, reprocessResult } = get();
+
+      if (!result || !selectedImageType || !reprocessResult) {
+        return;
+      }
+
+      // 根据选中的类型替换对应的图片
+      const updatedResult: StandardizationResult = { ...result };
+      
+      switch (selectedImageType) {
+        case 'banner':
+          updatedResult.banner = reprocessResult;
+          break;
+        case 'cover':
+          updatedResult.cover = reprocessResult;
+          break;
+        case 'icon':
+          updatedResult.icon = reprocessResult;
+          break;
+        case 'appreciationGuide':
+          updatedResult.appreciationGuide = reprocessResult;
+          break;
+        case 'appreciationThanks':
+          updatedResult.appreciationThanks = reprocessResult;
+          break;
+      }
+
+      set({
+        result: updatedResult,
+        reprocessResult: null,
+        selectedImageType: null,
+        reprocessPrompt: '',
+      });
+    },
+
+    /**
+     * 取消重新处理，保留原有图片
+     * 
+     * Requirements: 4.10
+     */
+    cancelReprocess: () => {
+      set({
+        reprocessResult: null,
+        selectedImageType: null,
+        reprocessPrompt: '',
+        reprocessParams: { ...DEFAULT_PROCESSING_PARAMS },
       });
     },
 

@@ -11,6 +11,8 @@ export { EmojiGrid } from './EmojiGrid';
 export { EmojiEditor } from './EmojiEditor';
 export { SettingsDrawer } from './SettingsDrawer';
 export { WorkPanel } from './WorkPanel';
+export { SaveButton } from './SaveButton';
+export type { SaveButtonProps } from './SaveButton';
 export { SelectionCanvas } from './SelectionCanvas';
 export type { SelectionCanvasProps } from './SelectionCanvas';
 export { SelectionToolPanel } from './SelectionToolPanel';
@@ -25,6 +27,10 @@ export { StandardizationPreviewPanel } from './StandardizationPreviewPanel';
 export { StandardizationDownloadPanel } from './StandardizationDownloadPanel';
 export { WeChatStandardizationPanel, ImportToStandardizationButton } from './WeChatStandardizationPanel';
 export type { ImportToStandardizationButtonProps } from './WeChatStandardizationPanel';
+export { PreviewGallery } from './PreviewGallery';
+export type { PreviewGalleryProps } from './PreviewGallery';
+export { ReprocessPanel } from './ReprocessPanel';
+export type { ReprocessPanelProps } from './ReprocessPanel';
 export { 
   Skeleton, 
   SkeletonText, 

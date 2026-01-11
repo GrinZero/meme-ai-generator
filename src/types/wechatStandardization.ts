@@ -16,18 +16,27 @@ export interface SourceImage {
 }
 
 /**
+ * 图片类型
+ */
+export type WImageType = 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks';
+
+/**
  * 处理后的标准化图片
  */
 export interface ProcessedImage {
   id: string;
-  type: 'banner' | 'cover' | 'icon';
+  type: WImageType;
   blob: Blob;
   preview: string;
   width: number;
   height: number;
   sizeKB: number;
-  format: 'png' | 'jpeg';
+  format: 'png' | 'jpeg' | 'gif';
   hasTransparency: boolean;
+  /** AI 生成的原始图片（未经过处理的） */
+  originalBlob?: Blob;
+  /** AI 生成的原始图片预览 URL */
+  originalPreview?: string;
 }
 
 /**
@@ -37,6 +46,8 @@ export interface StandardizationPrompts {
   p1: string;  // 横幅提示词
   p2: string;  // 封面提示词
   p3: string;  // 图标提示词
+  appreciationGuide: string;  // 赞赏引导图提示词
+  appreciationThanks: string; // 赞赏致谢图提示词
 }
 
 /**
@@ -46,6 +57,8 @@ export interface StandardizationResult {
   banner: ProcessedImage | null;
   cover: ProcessedImage | null;
   icon: ProcessedImage | null;
+  appreciationGuide: ProcessedImage | null;  // 赞赏引导图
+  appreciationThanks: ProcessedImage | null; // 赞赏致谢图
   errors: StandardizationError[];
 }
 
@@ -55,8 +68,8 @@ export interface StandardizationResult {
 export type ProcessingStatus =
   | { stage: 'idle' }
   | { stage: 'uploading'; progress: number }
-  | { stage: 'generating'; type: 'p1' | 'p2' | 'p3'; progress: number }
-  | { stage: 'processing'; type: 'p1' | 'p2' | 'p3' }
+  | { stage: 'generating'; type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks'; progress: number }
+  | { stage: 'processing'; type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks' }
   | { stage: 'completed' }
   | { stage: 'error'; message: string };
 
@@ -71,7 +84,9 @@ export type StandardizationErrorType =
   | 'IMAGE_PROCESSING_FAILED'   // 图像处理失败
   | 'BACKGROUND_REMOVAL_FAILED' // 背景移除失败
   | 'COMPRESSION_FAILED'        // 压缩失败
-  | 'DOWNLOAD_FAILED';          // 下载失败
+  | 'DOWNLOAD_FAILED'           // 下载失败
+  | 'APPRECIATION_GENERATION_FAILED'  // 赞赏图生成失败
+  | 'REPROCESS_FAILED';               // 重新处理失败
 
 /**
  * 标准化错误
@@ -97,6 +112,32 @@ export interface ResizeOptions {
 }
 
 /**
+ * 切割算法参数
+ */
+export interface ProcessingParams {
+  /** 容差值 */
+  tolerance: number;
+  /** 最小区域 */
+  minArea: number;
+  /** 最小尺寸 */
+  minSize: number;
+  /** 是否移除背景 */
+  removeBackground?: boolean;
+}
+
+
+/**
+ * 启用生成的图片类型
+ */
+export type EnabledTypes = {
+  p1: boolean;
+  p2: boolean;
+  p3: boolean;
+  appreciationGuide: boolean;
+  appreciationThanks: boolean;
+};
+
+/**
  * Zustand Store 状态
  */
 export interface WeChatStandardizationState {
@@ -112,6 +153,15 @@ export interface WeChatStandardizationState {
   // 处理状态
   status: ProcessingStatus;
 
+  // 启用生成的图片类型
+  enabledTypes: EnabledTypes;
+
+  // 图片选择和重新处理相关状态
+  selectedImageType: WImageType | null;
+  reprocessPrompt: string;
+  reprocessParams: ProcessingParams;
+  reprocessResult: ProcessedImage | null;
+
   // Actions - 源图片管理
   addSourceImages: (files: File[]) => void;
   removeSourceImage: (id: string) => void;
@@ -122,6 +172,24 @@ export interface WeChatStandardizationState {
   setPrompt: (type: 'p1' | 'p2' | 'p3', value: string) => void;
   resetPrompt: (type: 'p1' | 'p2' | 'p3') => void;
   resetAllPrompts: () => void;
+
+  // Actions - 赞赏图提示词管理
+  setAppreciationPrompt: (type: 'appreciationGuide' | 'appreciationThanks', value: string) => void;
+  resetAppreciationPrompt: (type: 'appreciationGuide' | 'appreciationThanks') => void;
+
+  // Actions - 启用类型管理
+  toggleEnabledType: (type: keyof EnabledTypes) => void;
+  setEnabledTypes: (types: EnabledTypes) => void;
+
+  // Actions - 图片选择和重新处理
+  setSelectedImageType: (type: WImageType | null) => void;
+  setReprocessPrompt: (prompt: string) => void;
+  setReprocessParams: (params: ProcessingParams) => void;
+  regenerateSelected: (apiConfig: APIConfig) => Promise<void>;
+  applyImageProcessing?: () => Promise<void>;
+  updateResult: (partialResult: Partial<StandardizationResult>) => void;
+  replaceWithReprocessed: () => void;
+  cancelReprocess: () => void;
 
   // Actions - 生成流程控制
   startGeneration: (apiConfig: APIConfig) => Promise<void>;
@@ -161,7 +229,14 @@ export interface StandardizationService {
   generateAll(
     sourceImages: SourceImage[],
     prompts: StandardizationPrompts,
-    apiConfig: APIConfig
+    apiConfig: APIConfig,
+    onProgress?: (
+      type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks',
+      stage: 'generating' | 'processing' | 'completed' | 'error',
+      progress?: number,
+      error?: string
+    ) => void,
+    enabledTypes?: EnabledTypes
   ): Promise<StandardizationResult>;
 }
 
@@ -219,16 +294,16 @@ export interface StandardizationImageUploaderProps {
 }
 
 export interface StandardizationPromptEditorProps {
-  /** P1 提示词 */
-  p1Prompt: string;
-  /** P2 提示词 */
-  p2Prompt: string;
-  /** P3 提示词 */
-  p3Prompt: string;
+  /** 提示词对象 */
+  prompts: StandardizationPrompts;
+  /** 启用的类型 */
+  enabledTypes: EnabledTypes;
   /** 提示词变更回调 */
-  onPromptChange: (type: 'p1' | 'p2' | 'p3', value: string) => void;
+  onPromptChange: (type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks', value: string) => void;
   /** 重置回调 */
-  onReset: (type: 'p1' | 'p2' | 'p3') => void;
+  onReset: (type: 'p1' | 'p2' | 'p3' | 'appreciationGuide' | 'appreciationThanks') => void;
+  /** 切换启用状态回调 */
+  onToggleType: (type: keyof EnabledTypes) => void;
 }
 
 export interface StandardizationPreviewPanelProps {
@@ -251,8 +326,12 @@ export interface StandardizationDownloadPanelProps {
   cover: ProcessedImage | null;
   /** P3 图标 */
   icon: ProcessedImage | null;
+  /** P4 赞赏引导图 */
+  appreciationGuide: ProcessedImage | null;
+  /** P5 赞赏致谢图 */
+  appreciationThanks: ProcessedImage | null;
   /** 单张下载回调 */
-  onDownloadSingle: (type: 'banner' | 'cover' | 'icon') => void;
+  onDownloadSingle: (type: 'banner' | 'cover' | 'icon' | 'appreciationGuide' | 'appreciationThanks') => void;
   /** 批量下载回调 */
   onDownloadAll: () => void;
   /** 是否禁用 */

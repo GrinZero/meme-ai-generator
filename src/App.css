@@ -156,6 +156,23 @@ body {
   gap: 1.5rem;
 }
 
+/* 右侧栏固定定位，防止页面过长时下方留白 */
+@media (min-width: 1024px) {
+  .result-column {
+    position: sticky;
+    top: 5.5rem; /* Header height + gap */
+    height: calc(100vh - 7rem); /* Viewport - Header - Gap */
+    overflow-y: auto;
+    /* 隐藏滚动条但保留功能 */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .result-column::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* ===================================
    Card Style
    =================================== */

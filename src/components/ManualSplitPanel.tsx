@@ -154,7 +154,17 @@ export function ManualSplitPanel() {
     } finally {
       setIsSplitting(false);
     }
-  }, [uploadedImage, previewUrl, setExtractedEmojis, apiConfig, aiSegmentationConfig]);
+  }, [
+    uploadedImage, 
+    previewUrl, 
+    setExtractedEmojis, 
+    apiConfig, 
+    aiSegmentationConfig,
+    manualSplitConfig.tolerance,
+    manualSplitConfig.minArea,
+    manualSplitConfig.minSize,
+    manualSplitConfig.mergeDistancePercent
+  ]);
 
   return (
     <div className="card">
